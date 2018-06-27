@@ -1,14 +1,14 @@
 from desktop_file_dialogs import Desktop_FilesDialog, FileGroup
 
-import os #used to interact with PC to import and save files
-import pandas as pd #pandas is the dataframe library that allows loading EEG data and various operations
-import numpy as np #numpy allows various manipulations of data structures to help in plotting, constructing arrays, etc
+import os  # used to interact with PC to import and save files
+import pandas as pd  # pandas is the dataframe library that allows loading EEG data and various operations
+import numpy as np  # numpy allows various manipulations of data structures to help in plotting, constructing arrays, etc
 
-#matplotlib import statements - this is the plotting library
-import matplotlib.pyplot as plt #plotting
-import matplotlib.tri as tri #tri interpolation for the topomaps
-import matplotlib.patches as patches #used for drawing mask and the ears
-import matplotlib.lines as lines #used for drawing ears
+# matplotlib import statements - this is the plotting library
+import matplotlib.pyplot as plt  # plotting
+import matplotlib.tri as tri  # tri interpolation for the topomaps
+import matplotlib.patches as patches  # used for drawing mask and the ears
+import matplotlib.lines as lines  # used for drawing ears
 
 dfs = {}
 conditions = []
@@ -27,7 +27,7 @@ sampling_rate = 1.953125 #this is 512Hz in ms ---> 1000/512
 epoch = [-200,1201]
 t = np.arange(epoch[0],epoch[1],sampling_rate)
 
-#Coordinate operations for plotting topomaps
+# Coordinate operations for plotting topomaps
 _x = np.array([-0.30882875, -0.587427189, -0.406246747, -0.286965299, -0.545007446, -0.728993475, -0.808524163, -0.950477158,
                 -0.887887748, -0.676377097, -0.374709505, -0.390731128, -0.7193398, -0.933580426, -0.999390827, -0.950477158, 
                 -0.887887748, -0.676377097, -0.374709505, -0.286965299, -0.545007446, -0.728993475, -0.808524163, -0.733218402, 
@@ -101,7 +101,7 @@ def in_range(val,arr):
                 return False
         else:
             return True
-    elif isinstance(val,int) or isisntance(val,float):
+    elif isinstance(val,int) or isinstance(val,float):
         if arr.min() <= val <= arr.max():
             return True
         else:
@@ -246,9 +246,7 @@ def plot_topomap(conditions, time, vrange = None, fig_title='placeholder_title',
     if isinstance(vrange,list):
         if len(vrange) == 2:
             vmin, vmax = vrange[0], vrange[1]
-            if vmin < vmax:
-                proceed = True
-            else:
+            if vmin > vmax:
                 raise ValueError('Ensure that vrange is provided in form [min,max].')
         else:
             raise ValueError('Provided vrange has %s elements. Should only have 2.' % (len(vrange)))
@@ -336,6 +334,27 @@ def plot_topomap(conditions, time, vrange = None, fig_title='placeholder_title',
     print('Plotted successfully! Navigate to %s to find %s.pdf' % (path, fig_title))
 
 def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linestyles = default_linestyles, fig_title = 'placeholder_title', y_axis_range = None, axis_formatting = True, axvlines = False, electrode_labels = True, Y = 13, X = 7):
+    """
+    This function allows you to plot ERPs in multiple different ways, assuming you have already loaded into conditions the necessary data.
+
+    You may plot any number of conditions (Note that any more than 3-4 becomes very hard to read).  
+        To load conditions, simply specifiy the conditions in an array: ['Cond1','Cond2']
+        These conditions must already be loaded using load_data
+        You may print(conditions) to see which conditions have already been loaded.
+    
+    You may also customize the colours and linestyles using arrays:
+        ex: colours = ['blue','red'], linestyles = ['-',':']
+        for a blue solid line and a red dashed line
+    
+    You may plot any combination of electrodes as a single plot, a row, column or grid.  
+        To do so, specify an array or matrix of electrodes:
+        ex: [[''F3,'Fz','F4'],['FC3','FCz','FC4'],['C3','Cz','C4']]
+        Or select a preset: midlines, ROI_lateral, ROI_medial, etc
+    
+    Specify a fig_title or the file will be saved as placeholder_title.pdf
+    
+    Specify a y_axis_range as an array of 2 values: [min, max]
+    """
     x,y = dimensions(electrodes)
     fig,axes = plt.subplots(x,y,figsize=(y*Y,x*X))
 
@@ -393,7 +412,6 @@ def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linesty
         _plot_EEG(electrodes, axes)
     fig.set_tight_layout(True)
 
-    filename = fig_title + '.pdf'
     path = directory_in_str + os.sep + 'Plots' + os.sep
     if not os.path.exists(path):
         os.makedirs(path)
