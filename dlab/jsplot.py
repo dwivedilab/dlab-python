@@ -333,7 +333,7 @@ def plot_topomap(conditions, time, vrange = None, fig_title='placeholder_title',
     fig.savefig(path + fig_title + '.pdf',format='pdf')
     print('Plotted successfully! Navigate to %s to find %s.pdf' % (path, fig_title))
 
-def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linestyles = default_linestyles, fig_title = 'placeholder_title', y_axis_range = None, axis_formatting = True, axvlines = False, electrode_labels = True, Y = 13, X = 7):
+def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linestyles = default_linestyles, fig_title = 'placeholder_title', y_axis_range = None, see_log = True, axis_formatting = True, axvlines = False, electrode_labels = True, Y = 13, X = 7):
     """
     This function allows you to plot ERPs in multiple different ways, assuming you have already loaded into conditions the necessary data.
 
@@ -354,6 +354,8 @@ def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linesty
     Specify a fig_title or the file will be saved as placeholder_title.pdf
     
     Specify a y_axis_range as an array of 2 values: [min, max]
+    
+    Set see_log to false if you don't want the log to be printed to console (it will still save a text file)
     """
     x,y = dimensions(electrodes)
     fig,axes = plt.subplots(x,y,figsize=(y*Y,x*X))
@@ -428,8 +430,14 @@ def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linesty
         f.write('\n \n')
         f.write(str(electrodes))
         f.close()
-        
+      
     _print_log()
+    if see_log:
+        f = open(os.path.join(path, fig_title + '.txt'), 'r')
+        for line in f.read().splitlines():
+            print(line)
+        f.close()
+            
     fig.savefig(path + fig_title + '.pdf',format='pdf',dpi=1200)
 
     print('Plotted successfully! Navigate to %s to find %s.pdf' % (path, fig_title))
