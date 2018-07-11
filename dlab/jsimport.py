@@ -99,7 +99,7 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
                 __load_eprime(filename).to_csv(formatted_dir + os.sep + filename, sep='\t',index=False)
                 df = df.append(__load_eprime(filename))                
                 print("Successfully exported!")
-		return df
+        return df
 
     def __merge_eprime():
         df = pd.DataFrame()
@@ -109,21 +109,21 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
                 df = df.append(__load_eprime(filename))
                 print("Successfully appended!")
         df.to_csv(formatted_dir + os.sep + merged_output_name + '.txt', sep='\t',index=False)
-		return df
+        return df
 
     def __add_psychopy():
-		pass
-	
-	def __merge_psychopy():
-		pass
-		
+        pass
+    
+    def __merge_psychopy():
+        pass
+        
     #Check if valid source type and create load_type dict
     if source == "eprime":            
         print("MAKE SURE E-RECOVERY FILES ARE NOT INCLUDED IN RAW PPT FILES DIRECTORY!!!!!!!!!\n")
         load_type = {"add":__add_eprime, "merge":__merge_eprime}
     elif source == "psychopy":
         load_type = {"add":__add_psychopy, "merge":__merge_psychopy}
-		raise ValueError('PsychoPy methods not yet implemented')
+        raise ValueError('PsychoPy methods not yet implemented')
     else:
         raise ValueError("Provided source: '%s' is invalid. \nImport is only implemented for 'eprime' and 'psychopy'. \nProvide one of these as the argument for source.")
 
