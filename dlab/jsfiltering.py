@@ -6,6 +6,17 @@ from matplotlib.ticker import FuncFormatter, MaxNLocator, FixedLocator
 
 pd.options.mode.chained_assignment = None
 
+def load_excel_file(filename, sheetname):
+    if os.path.isfile(filename):
+        xl = pd.ExcelFile(input_file)
+    else:
+        raise ValueError('Provided file "%s" cannot be found' % filename)
+    
+    if sheetname in xl.sheet_names:
+        return xl.parse(sheetname)
+    else:
+        raise ValueError('Provided sheet "%s" cannot be found' % sheetname)
+
 def load_excel_files(dir_path = ''):
     #first ask for the source data
     files = {}
@@ -22,16 +33,15 @@ def load_excel_files(dir_path = ''):
 
     input_file = input('Which file?: ')
     if int(input_file) in files.keys():
-        input_file = files[int(input_file)]
+        filename = files[int(input-file)]
 
     #load excel file
-    xl = pd.ExcelFile(input_file)
+    xl = pd.ExcelFile(filename)
 
     #ask which sheet the data is stored in
     sheets = {}
     i = 1
-    print()
-    print('Listing sheets...')
+    print('\nListing sheets...')
     for sheet in xl.sheet_names:
         sheets[i] = sheet           
         print('%i: %s' % (i, sheet))
@@ -40,10 +50,13 @@ def load_excel_files(dir_path = ''):
 
     input_sheet = input('Which sheet?: ')
     if int(input_sheet) in sheets.keys():
-        input_sheet = sheets[int(input_sheet)]
-
+        sheetname = sheets[int(input_sheet)]
+    
+    #tell user how they may directly call this import
+    print("You may call: load_excel_file('%s','%s')" % (filename,sheetname))
+    
     #create pandas df from sheet
-    return xl.parse(input_sheet)
+    return xl.parse(sheetname)
 
 def check_input_data(df):
     cols = df.columns
@@ -77,7 +90,7 @@ def check_input_data(df):
     
 
 def remove_extremes(df, low = 200, high = 5000, summarize = True):
-    #filter out below 100 and above 5000
+    #filter out below 200 and above 5000
     df['RTremove'] = pd.cut(df['RT'], [0, low, high, np.inf], labels=['Below','Ok','Above'])
     removeExtremes = (df['RT'] < high)&(df['RT'] > low)
     df['RTremoveVal'] = np.nan
@@ -87,8 +100,8 @@ def remove_extremes(df, low = 200, high = 5000, summarize = True):
         total = len(df.index)
         removed = df['RTremove'].value_counts()
         print("\nThe summary for removal of extreme values:")
-        print(">>%s or %.3f%% items were below the specified cutoff." % (removed['Below'], removed['Below']*100/total))
-        print(">>%s or %.3f%% items were above the specified cutoff." % (removed['Above'], removed['Above']*100/total))
+        print(">>%s or %.3f%% items were below the specified cutoff of %s." % (removed['Below'], removed['Below']*100/total, low))
+        print(">>%s or %.3f%% items were above the specified cutoff of %s." % (removed['Above'], removed['Above']*100/total, high))
 
     return df
 
@@ -103,7 +116,7 @@ def identify_missing_data(df):
         if remove == 'y':
             df = df[~df['Subject'].isin(inelig_ppts)]
             print('\nRemoved!')
-    
+        
     by_item = df.groupby(['item','condition','Trial'])
     missing_by_item = by_item.mean()[by_item.mean().isnull().any(axis=1)]['RTremoveVal']
     if len(missing_by_item) != 0:
@@ -129,8 +142,8 @@ def filter_outliers(df, ppt = True, items = True, SD = 2, summarize = True):
         if summarize:
             by_ppt_filtered = df['RTfiltered_by_ppt_labels'].value_counts()
             print("\nThe summary for filtering by ppt:")
-            print(">>%s or %.3f%% items were below the specified cutoff." % (by_ppt_filtered['Below'], by_ppt_filtered['Below']*100/total))
-            print(">>%s or %.3f%% items were above the specified cutoff." % (by_ppt_filtered['Above'], by_ppt_filtered['Above']*100/total))
+            print(">>%s or %.3f%% items were below the specified cutoff of -%sSD." % (by_ppt_filtered['Below'], by_ppt_filtered['Below']*100/total, SD))
+            print(">>%s or %.3f%% items were above the specified cutoff of +%sSD." % (by_ppt_filtered['Above'], by_ppt_filtered['Above']*100/total, SD))
                     
     if items:
         df[['RTfiltered_by_item_labels','RTfiltered_by_item_values']] = df.groupby(['item','condition','Trial'])['RTremoveVal'].apply(outliers,'RTfiltered_by_item_labels','RTfiltered_by_item_values')
@@ -138,8 +151,8 @@ def filter_outliers(df, ppt = True, items = True, SD = 2, summarize = True):
         if summarize:
             by_item_filtered = df['RTfiltered_by_item_labels'].value_counts()
             print("\nThe summary for filtering by items:")
-            print(">>%s or %.3f%% items were below the specified cutoff." % (by_item_filtered['Below'], by_item_filtered['Below']*100/total))
-            print(">>%s or %.3f%% items were above the specified cutoff." % (by_item_filtered['Above'], by_item_filtered['Above']*100/total))
+            print(">>%s or %.3f%% items were below the specified cutoff of -%sSD." % (by_item_filtered['Below'], by_item_filtered['Below']*100/total, SD))
+            print(">>%s or %.3f%% items were above the specified cutoff of +%sSD." % (by_item_filtered['Above'], by_item_filtered['Above']*100/total, SD))
 
     return df
 
