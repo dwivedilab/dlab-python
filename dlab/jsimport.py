@@ -1,9 +1,8 @@
 import os
 import pandas as pd
 
-def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir = "", merged_output_name = "merged"):
+def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir = "", merged_output_name = "merged", encoding = "UTF-16"):
     #Define local functions
-    
     def __load_eprime(filename):
         def check(line):
             for drive in ['C','D','E','F','G','H']:
@@ -17,7 +16,7 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
         print("\nLoading %s..." % filename)
         
         #find where header starts
-        with open(raw_file, 'r', encoding = "UTF-16") as tsv:
+        with open(raw_file, 'r', encoding = encoding) as tsv:
             for line in tsv:
                 if check(line):
                     if next(tsv).startswith("This file"):
@@ -35,7 +34,7 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
                 
         #need to reopen or loop will start where we left off before
         #obtain header as an array for pandas
-        with open(raw_file, 'r', encoding = "UTF-16") as tsv:
+        with open(raw_file, 'r', encoding = encoding) as tsv:
             i = 0
             for line in tsv:
                 if i == skip:
@@ -46,7 +45,7 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
                     i += 1
 
         #load in pandas
-        df = pd.read_csv(raw_file, delimiter='\t',encoding='utf-16',skiprows=skip + 1, names = header)
+        df = pd.read_csv(raw_file, delimiter='\t',encoding=encoding,skiprows=skip + 1, names = header)
 
         #Clean up: Random Seed, Session Time UTC, resolving study list issue and session date issue
         if 'RandomSeed' in df.columns:
@@ -59,8 +58,10 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
         if 'SessionTimeUtc' in df.columns:
             df = df.drop(columns = "SessionTimeUtc")
             print("Found and dropped SessionTimeUtc column.")
-        else:
-            print("No SessionTimeUtc columnn found. Check file to make sure there are no errors.")
+        
+        if 'SessionTime' in df.columns:
+            df = df.drop(columns = "SessionTime")
+            print("Found and dropped SessionTime column.")            
             
         df['SourceFile'] = filename
         for studylist in ['A','B','C','D','E','F']:
@@ -76,7 +77,13 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
             print('Did not find a study list column.')
 
         if 'SessionDate' in df.columns:
-            date = df['SessionDate'].unique()[0].split('-')
+            date = df['SessionDate'].unique()[0]
+            if '-' in date:
+                delimiter = '-'
+            elif '/' in date:
+                delimiter = '/'
+                
+            date = date.split(delimiter)
             df['Month'] = date[0]
             df['Day'] = date[1]
             df['Year'] = date[2]
@@ -148,6 +155,6 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
         
     #Check if valid mode and execute function
     if mode in load_type:
-        load_type[mode]()
+        return load_type[mode]()
     else:
         raise ValueError("Provided mode: '%s' is invalid. \nImplemented import modes are 'add' and 'merge'. \nProvide one of these as the argument for source.")
