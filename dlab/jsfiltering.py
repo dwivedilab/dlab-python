@@ -100,8 +100,8 @@ def remove_extremes(df, low = 200, high = 5000, summarize = True):
         total = len(df.index)
         removed = df['RTremove'].value_counts()
         print("\nThe summary for removal of extreme values:")
-        print(">>%s or %.3f%% items were below the specified cutoff of %s." % (removed['Below'], removed['Below']*100/total, low))
-        print(">>%s or %.3f%% items were above the specified cutoff of %s." % (removed['Above'], removed['Above']*100/total, high))
+        print(">>%s or %.3f%% items were below the specified cutoff of %s ms." % (removed['Below'], removed['Below']*100/total, low))
+        print(">>%s or %.3f%% items were above the specified cutoff of %s ms." % (removed['Above'], removed['Above']*100/total, high))
 
     return df
 
@@ -151,8 +151,8 @@ def filter_outliers(df, ppt = True, items = True, SD = 2, summarize = True):
         if summarize:
             by_item_filtered = df['RTfiltered_by_item_labels'].value_counts()
             print("\nThe summary for filtering by items:")
-            print(">>%s or %.3f%% items were below the specified cutoff of -%sSD." % (by_item_filtered['Below'], by_item_filtered['Below']*100/total, SD))
-            print(">>%s or %.3f%% items were above the specified cutoff of +%sSD." % (by_item_filtered['Above'], by_item_filtered['Above']*100/total, SD))
+            print(">>%s or %.3f%% items were below the specified cutoff of -%s SD." % (by_item_filtered['Below'], by_item_filtered['Below']*100/total, SD))
+            print(">>%s or %.3f%% items were above the specified cutoff of +%s SD." % (by_item_filtered['Above'], by_item_filtered['Above']*100/total, SD))
 
     return df
 
