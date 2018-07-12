@@ -104,7 +104,7 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
             filename = os.fsdecode(raw_file)
             if filename.endswith(".txt") and filename not in formatted_files:
                 __load_eprime(filename).to_csv(formatted_dir + os.sep + filename, sep='\t',index=False)
-                df = df.append(__load_eprime(filename))                
+                df = df.append(__load_eprime(filename), ignore_index = True)                
                 print("Successfully exported!")
         return df
 
@@ -113,7 +113,7 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
         for raw_file in os.listdir(raw_dir):
             filename = os.fsdecode(raw_file)
             if filename.endswith(".txt"):
-                df = df.append(__load_eprime(filename))
+                df = df.append(__load_eprime(filename), ignore_index = True)
                 print("Successfully appended!")
         df.to_csv(formatted_dir + os.sep + merged_output_name + '.txt', sep='\t',index=False)
         return df
