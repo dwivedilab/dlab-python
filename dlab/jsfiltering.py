@@ -99,9 +99,11 @@ def remove_extremes(df, low = 200, high = 5000, summarize = True):
     if summarize:
         total = len(df.index)
         removed = df['RTremove'].value_counts()
+        below = removed.get("Below", 0)
+        above = removed.get("Above", 0)
         print("\nThe summary for removal of extreme values:")
-        print(">>%s or %.3f%% items were below the specified cutoff of %s ms." % (removed['Below'], removed['Below']*100/total, low))
-        print(">>%s or %.3f%% items were above the specified cutoff of %s ms." % (removed['Above'], removed['Above']*100/total, high))
+        print(">>%s or %.3f%% items were below the specified cutoff of %s ms." % (below, below*100/total, low))
+        print(">>%s or %.3f%% items were above the specified cutoff of %s ms." % (above, above*100/total, high))
 
     return df
 
@@ -133,7 +135,7 @@ def filter_outliers(df, ppt = True, items = True, SD = 2, summarize = True):
         lower, upper = mean - SD*std, mean + SD*std
         trimmed = group.mask(group < lower, lower).mask(group > upper, upper)
         labels = pd.cut(group, [np.NINF, lower, upper, np.inf], labels=['Below','Ok','Above'])
-        return pd.DataFrame({trimmed_name:trimmed, labels_name:labels})
+        return pd.DataFrame({labels_name:labels, trimmed_name:trimmed})
 
     #filter out outliers by ppt then by items
     if ppt:
@@ -141,18 +143,22 @@ def filter_outliers(df, ppt = True, items = True, SD = 2, summarize = True):
 
         if summarize:
             by_ppt_filtered = df['RTfiltered_by_ppt_labels'].value_counts()
+            below = by_ppt_filtered.get("Below", 0)
+            above = by_ppt_filtered.get("Above", 0)
             print("\nThe summary for filtering by ppt:")
-            print(">>%s or %.3f%% items were below the specified cutoff of -%sSD." % (by_ppt_filtered['Below'], by_ppt_filtered['Below']*100/total, SD))
-            print(">>%s or %.3f%% items were above the specified cutoff of +%sSD." % (by_ppt_filtered['Above'], by_ppt_filtered['Above']*100/total, SD))
+            print(">>%s or %.3f%% items were below the specified cutoff of -%s SD." % (below, below*100/total, SD))
+            print(">>%s or %.3f%% items were above the specified cutoff of +%s SD." % (above, above*100/total, SD))
                     
     if items:
         df[['RTfiltered_by_item_labels','RTfiltered_by_item_values']] = df.groupby(['item','condition','Trial'])['RTremoveVal'].apply(outliers,'RTfiltered_by_item_labels','RTfiltered_by_item_values')
 
         if summarize:
             by_item_filtered = df['RTfiltered_by_item_labels'].value_counts()
+            below = by_item_filtered.get("Below", 0)
+            above = by_item_filtered.get("Above", 0)
             print("\nThe summary for filtering by items:")
-            print(">>%s or %.3f%% items were below the specified cutoff of -%s SD." % (by_item_filtered['Below'], by_item_filtered['Below']*100/total, SD))
-            print(">>%s or %.3f%% items were above the specified cutoff of +%s SD." % (by_item_filtered['Above'], by_item_filtered['Above']*100/total, SD))
+            print(">>%s or %.3f%% items were below the specified cutoff of -%s SD." % (below, below*100/total, SD))
+            print(">>%s or %.3f%% items were above the specified cutoff of +%s SD." % (above, above*100/total, SD))
 
     return df
 
@@ -180,7 +186,7 @@ def plot_reading_time(df, factor_col, conds, formatting, words, title, adj_facto
     y = df.groupby([factor_col,'Trial']).mean().unstack()
     yerr = df.groupby([factor_col,'Trial']).sem().unstack()
     
-    fig = plt.figure()
+    fig = plt.figure(figsize=(14,7))
     ax = fig.add_subplot(111)
     for cond in conds:
         c, fmt = formatting[cond]['c'], formatting[cond]['fmt']
@@ -204,7 +210,13 @@ def plot_reading_time(df, factor_col, conds, formatting, words, title, adj_facto
     plt.ylabel('Reading Time (ms)', weight = 'bold', size = 'x-large')
     
     ax.legend()
-    plt.show()
+    
+    path = "Plots"
+    if not os.path.exists(path):
+        os.makedirs(path)
+    fig.savefig(path + os.sep + title + ".pdf", format='pdf')
+    fig.patch.set_facecolor('white')
+    
 
 QScope_Defaults = {'Context_Number': {'AP':{'c':'red','fmt':'-^'},
                                       'AS':{'c':'orange','fmt':'-^'},
