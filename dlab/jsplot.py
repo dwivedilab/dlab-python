@@ -1,4 +1,4 @@
-from desktop_file_dialogs import Desktop_FilesDialog, FileGroup
+from dlab.desktop_file_dialogs import Desktop_FilesDialog, FileGroup
 
 import os  # used to interact with PC to import and save files
 import pandas as pd  # pandas is the dataframe library that allows loading EEG data and various operations
@@ -23,9 +23,9 @@ electrodes = ['Fp1','AF7','AF3','F1','F3','F5','F7','FT7',
             'P2','P4','P6','P8','P10','PO8','PO4','O2',
             'M1','M2','IO2','IO1','SO2','SO1','LO1','LO2']
 
-sampling_rate = 1.953125 #this is 512Hz in ms ---> 1000/512
+sampling_interval = 1.953125 #this is 512Hz in ms ---> 1000/512
 epoch = [-200,1201]
-t = np.arange(epoch[0],epoch[1],sampling_rate)
+t = np.arange(epoch[0],epoch[1],sampling_interval)
 
 # Coordinate operations for plotting topomaps
 _x = np.array([-0.30882875, -0.587427189, -0.406246747, -0.286965299, -0.545007446, -0.728993475, -0.808524163, -0.950477158,
@@ -87,9 +87,6 @@ default_colours = ['black','red','blue','purple']
 default_linestyles = ['-','-','-','-']
 F_size, F_weight = 44, 'bold'
 
-
-path = {'N4':r'C:\Users\selja\Brock University\Veena Dwivedi - Brain and Language Shared\N400Affect\Plotting\22ppts',
-'dir':r'C:\Users\selja\OneDrive\Computer Stuff\Python\js_plot'}
 
 def in_range(val,arr):
     arr = np.array(arr)
@@ -172,7 +169,7 @@ def compute_average(input_dfs, output_name):
                 dfs[output_name].loc[:,'Fp1':'LO2'].to_csv(filepath, sep = '\t', index = False, header = False)
                 conditions.append(output_name)
             else:
-                print('A df by the name: %s already exists. Provide a different name.' % output_name)
+                print('A df by the name: %s already exists.' % output_name)
         else:
             raise TypeError('%s is not a valid output name. Ensure you provide a string.' % output_name)
     else:
