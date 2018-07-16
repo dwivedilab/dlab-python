@@ -25,7 +25,8 @@ def export_to_excel(filename, outputs, output_sheet_names):
     else:
         writer = pd.ExcelWriter(filename)
         for i in range(len(outputs)):
-            outputs[i].to_excel(writer,sheet_name=output_sheet_names[i])    
+            outputs[i].to_excel(writer,sheet_name=output_sheet_names[i])
+            print("Writing DataFrame for Sheet: %s" % (output_sheet_names[i]))
         writer.save()
         print('Successfully wrote DataFrames to Excel file called: %s' % (filename))
     finally:
