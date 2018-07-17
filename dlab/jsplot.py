@@ -366,17 +366,21 @@ def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linesty
     while len(linestyles) < length:
         linestyles.append('-')
 
+
         
-    def _plot_EEG(electrode,r):
-        num_conds = length
+    def _plot_EEG(electrode,r,xaxis=True,yaxis=True):
         if electrode == None:
             r.axis('off')
         else:
-            if num_conds == 1:
+            if length == 1:
                 r.plot(t,dfs[conditions][electrode],color=colours[0],linestyle=linestyles[0])
             else:
-                for k in range(num_conds):
-                    r.plot(t,dfs[conditions[k]][electrode],color=colours[k],linestyle=linestyles[k])
+                for k in range(length):
+                    linestyle = linestyles[k]
+                    if(linestyle == '--'):                        
+                        r.plot(t,dfs[conditions[k]][electrode],color=colours[k],linestyle=linestyle, dashes = (1,2))
+                    else:
+                        r.plot(t,dfs[conditions[k]][electrode],color=colours[k],linestyle=linestyle)
             if axvlines:
                 r.axvline(x=0)
                 r.axvline(x=600)
@@ -390,6 +394,18 @@ def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linesty
                 r.spines['bottom'].set_position('zero')
                 r.spines['top'].set_color('none')
                 r.spines['right'].set_color('none')
+            if xaxis:
+                for item in r.get_xticklabels():
+                    item.set_fontsize(F_size*0.8)
+            else:
+                r.xaxis.set_ticklabels([])
+                r.tick_params(axis = 'x', length = 8)
+            if yaxis:
+                for item in r.get_yticklabels():
+                    item.set_fontsize(F_size*0.8)
+            else:
+                r.yaxis.set_ticklabels([])
+                r.tick_params(axis = 'y', length = 8)
                 
     i = 0
     if x > 1: ####grid or col layout
@@ -398,17 +414,18 @@ def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linesty
                 j = 0
                 for electrode in electrodes[i]:
                     r = row[j]
-                    _plot_EEG(electrode, r)
+                    _plot_EEG(electrode, r, xaxis = (i == x - 1), yaxis = (j == 0))
                     j += 1
             else: #####col layout
-                _plot_EEG(electrodes[i], row)                
+                _plot_EEG(electrodes[i], row, xaxis = (i == x - 1))                
             i+=1
     elif y > 1: ####row layout
         for electrode in electrodes:
-            _plot_EEG(electrode, axes[i])
+            _plot_EEG(electrode, axes[i], yaxis = (i == 0))
             i+=1
     else: ####single plot
         _plot_EEG(electrodes, axes)
+
     fig.set_tight_layout(True)
 
     path = directory_in_str + os.sep + 'Plots' + os.sep
