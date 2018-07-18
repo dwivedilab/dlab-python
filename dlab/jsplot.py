@@ -396,13 +396,13 @@ def plot_EEG(conditions, colours = default_colours, electrodes=midlines, linesty
                 r.spines['right'].set_color('none')
             if xaxis:
                 for item in r.get_xticklabels():
-                    item.set_fontsize(F_size*0.8)
+                    item.set_fontsize(F_size*0.65)
             else:
                 r.xaxis.set_ticklabels([])
                 r.tick_params(axis = 'x', length = 8)
             if yaxis:
                 for item in r.get_yticklabels():
-                    item.set_fontsize(F_size*0.8)
+                    item.set_fontsize(F_size*0.65)
             else:
                 r.yaxis.set_ticklabels([])
                 r.tick_params(axis = 'y', length = 8)
