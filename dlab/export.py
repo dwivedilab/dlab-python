@@ -77,25 +77,3 @@ def export_to_spss(filename, df, reset_index = False, DataType = 0, measure = 's
         raise ValueError("ERROR: Something went wrong. Check if the file is open.")
     else:
         print('\nSuccessfully wrote DataFrame to SPSS file called: %s' % (filename))
-        print("Adding index as column to df.")
-    else:
-        print("reset_index set to False. Index column will not be included in output.")
-    
-    varNames = list(df.columns)
-    varTypes = {}
-    measureLevels = {}
-    columnWidths = {}
-    alignments = {}
-    for var in varNames:
-        varTypes.update({var:DataType})
-        measureLevels.update({var:measure})
-        columnWidths.update({var:column_width})
-        alignments.update({var:align})
-
-    try:
-        with SavWriter(filename, varNames, varTypes, ioUtf8 = True, measureLevels = measureLevels) as writer:
-            writer.writerows(df)
-    except:
-        raise ValueError("ERROR: Something went wrong. Check if the file is open.")
-    else:
-        print('\nSuccessfully wrote DataFrame to SPSS file called: %s' % (filename))
