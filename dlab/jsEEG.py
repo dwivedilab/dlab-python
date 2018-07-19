@@ -39,14 +39,22 @@ class settings:
                  default_linestyles = ['-','-','-','-'],
                  F_size = 44,
                  F_weight = 'bold'
-                ):
+                ):            
         self.sampling_interval = sampling_interval
         self.epoch = epoch
         self.default_colours = default_colours
         self.default_linestyles = default_linestyles
         self.F_size = F_size
         self.F_weight = F_weight
-        self.import_electrodes(electrodes_path)
+        
+        if electrodes_path == None:
+            self._electrodes_path = os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), 
+                "coordinates.xyz"
+            )
+        else:
+            self._electrodes_path = electrodes_path
+        self.import_electrodes(self._electrodes_path)
         
     def import_electrodes(self, fpath):
         df = pd.read_csv(fpath, index_col=False, names = ["electrodes","_x","_y","_z"])
