@@ -34,7 +34,7 @@ class settings:
     def __init__(self, 
                  sampling_interval = 1.953125, 
                  epoch = {'start':-200, 'end':1201}, 
-                 electrodes_path = r"dlab\coordinates.xyz",
+                 electrodes_path = None,
                  default_colours = ['black','red','blue','purple'],
                  default_linestyles = ['-','-','-','-'],
                  F_size = 44,
