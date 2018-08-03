@@ -87,7 +87,7 @@ class Project:
         out.append(sections_str)
         out.append("-" * len(out[0]))
         valid_sections = ['Time', 'Electrode', 'Plotting', 'Data', 'Grands', 'Mean Amps']
-        if not all(section in valid_sections for section in sections):
+        if any(section not in valid_sections for section in sections):
             raise ValueError("A provided section is not valid. Please provide any/all of the following: %s" % ", ".join(valid_sections))
             
         def box(title):
@@ -170,7 +170,7 @@ class Project:
     def load(self, path):
         """
         The load function allows all bin files in an EMSE workspace to be loaded into the Project.data
-        For this to work, call the load function and provide the path to the folder containing all ppt files (usually EMSE > Orginals)
+        For this to work, call the load function and provide the path to the folder containing all ppt files (i.e. EMSE > Orginals)
         
         Note that this function uses the loaded settings.t and settings.electrodes to label the imported data.
         The file name is used to define the PPT # and the Condition ID. For this to work, the ppt ID must follow the last underscore in the project name.
@@ -202,7 +202,7 @@ class Project:
             raise ValueError("Invalid file extension.  Name the file with extension: *.p")
         
         if os.path.isfile(name):
-            print("Leading: %s" % name)
+            print("Loading: %s" % name)
             return pickle.load(open(name,'rb'))
         else:
             raise ValueError("File with name: %s could not be found." % name)
@@ -220,8 +220,50 @@ class Project:
             
         pickle.dump(self, open(name, 'wb'))
         
-    def compute_diffs(self):
-        pass
+    def compute_diffs(self, minuend, subtrahend, difference):
+        """
+        Compute difference scores between conditions for each ppt and store it back into data: minuend - subtrahend = difference
+        
+        Required arguments:
+        minuend -- the condition id for the minuend
+        subtrahend -- the condition id for the subtrahend
+        difference -- the condition id that the difference will be named
+        """
+        minuend_df, subtrahend_df = self.get_conditions(minuend), self.get_conditions(subtrahend)
+        if difference in self.conditions:
+            print("Note that a condition named %s already exists in this project." % difference)
+        
+        first_electrode, second_electrode = self.settings.electrodes[0], self.settings.electrodes[-1]
+        
+        difference_df =  minuend_df.loc[:,first_electrode:second_electrode] - subtrahend_df.loc[:,first_electrode:second_electrode] 
+        difference_df['t'] = minuend_df['t']
+        difference_df['Condition'] = difference
+        
+        self.data = pd.concat([NChanShort.data.reset_index(), difference_df.reset_index()], sort = False).set_index(['PPT','Condition'])
+        
+        print("Successfully computed difference named %s from: %s = %s - %s" % (difference, difference, minuend, subtrahend))
+        print("This has been saved back to data.  Note that you will need to update any mean_amps or grands that have already computed.")
+    
+    def compute_avgs(self, inputs, output):
+        """
+        Compute an average of certain conditions for each participant
+        
+        Required arguments:
+        inputs -- a list of conditions that are in the data to be average for each ppt
+        output -- a condition name for the output average
+        """
+        if type(inputs) != list:
+            raise TypeError("Provided inputs list is of type: %s. Please provide a list of strings." % type(inputs))
+        
+        if any(input not in self.conditions for input in inputs):
+            raise ValueError("One of the provided conditions was not found.")
+        
+        output_df = self.data.loc[idx[:,inputs],:].reset_index().groupby(['PPT','t']).mean().reset_index
+        output_df['Condition'] = output
+        
+        self.data = pd.concat([self.data.reset_index(), output_df], sort = False).set_index(['PPT','Condition'])
+        print("Successfully computed average named %s from the following conditions: %s" % (output, ", ".join(inputs)))
+        print("This has been saved back to data.  Note that you will need to update any mean_amps or grands that have already computed.")
     
     def compute_grands(self, name, ppts = []):
         if ppts:
@@ -232,6 +274,8 @@ class Project:
         self.grands[name] = df.groupby(['Condition','t']).mean()
     
     def compute_mean_amps(self, name, time_windows):
+        time_windows = self.settings.time_windows.get(time_windows, time_windows)
+        
         if type(time_windows) == dict:
             labels, time_windows = time_windows.keys(), time_windows.values()
         elif type(time_windows) == list:
@@ -256,8 +300,21 @@ class Project:
         
         self.mean_amps[name] = mean
     
+    def get_conditions(self, condition_id):
+        idx = pd.IndexSlice
+        if type(condition_id) == list:
+            if any(condition not in self.conditions for condition in condition_id):
+                raise ValueError("One of the provided conditions is not in loaded data.")
+            else:
+                return self.data.loc[idx[:,condition_id],:]
+        else:
+            if condition_id in self.conditions:
+                return self.data.loc[idx[:,condition_id],:]
+            else:
+                raise ValueError("Provided condition: %s, is not in loaded data." % (condition_id))
+    
     def ppt(self, ppt_id):
-        if ppt_id in self.data.index:
+        if ppt_id in self.data.index.get_level_values('PPT'):
             return self.data.loc[ppt_id]
         else:
             raise ValueError("Provided PPT ID: %s, is not in loaded data." % (ppt_id))
@@ -416,11 +473,11 @@ class Project:
     
     @property
     def ppts(self):
-        return self.data.index.levels[0]
+        return self.data.index.get_level_values('PPT')
     
     @property
     def conditions(self):
-        return self.data.index.levels[1]
+        return self.data.index.get_level_values('Condition')
     
     @property
     def N(self):
