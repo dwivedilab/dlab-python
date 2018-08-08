@@ -1,10 +1,14 @@
-import numpy as np
-import pandas as pd
 import os
 import re
 import pickle
-import matplotlib.pyplot as plt
 from math import ceil
+import numpy as np
+import pandas as pd
+# matplotlib import statements - this is the plotting library
+import matplotlib.pyplot as plt  # plotting
+import matplotlib.tri as tri  # tri interpolation for the topomaps
+import matplotlib.patches as patches  # used for drawing mask and the ears
+import matplotlib.lines as lines  # used for drawing ears
 
 class settings:
     electrode_layouts = {"midlines":[['Fz'],
@@ -77,6 +81,22 @@ class settings:
     
 
 class Project:
+    """
+    A project class which contains EEG data.
+	
+	Public Methods:
+	summary -- print a summary of the Project, or a subset of the summary
+	load -- load EMSE bin files into the Project by providing the EMSE > Original path
+	load_pickle -- load a pickle file to re-initialize a Project object
+	save_pickle -- save a pickle file for later re-initializing
+	compute_diffs -- compute differences between conditions across ppts
+	compute_avgs -- compute averages between conditions across ppts
+	compute_grands -- compute grand averages and save to the self.grands dict
+	compute_mean_amps - compute mean amplitudes and save to the self.mean_amps dict
+	plot_EEG -- plot ERP waveforms
+	plot_topomap -- plot topographic maps
+	...
+    """
     def __str__(self):
         return self.summary()
        
@@ -143,7 +163,7 @@ class Project:
                 out.append("There %s %s grands df%s computed." % ("is" if singular else "are",
                                                         len(self.grands),
                                                         "" if singular else "s"))
-                out.append(">\t",", ".join([grands for grands in self.grands]))
+                out.append(">\t" + ", ".join([grands for grands in self.grands]))
         
         if "Mean Amps" in sections:
             out.append(box("Mean Amps"))
@@ -154,7 +174,7 @@ class Project:
                 out.append("There %s %s mean_amp df%s computed." % ("is" if singular else "are",
                                                         len(self.mean_amps),
                                                         "" if singular else "s"))
-                out.append(">\t",", ".join([mean_amps for mean_amps in self.mean_amps]))
+                out.append(">\t" + ", ".join([mean_amps for mean_amps in self.mean_amps]))
         
         return "\n".join(out)
     
@@ -169,11 +189,10 @@ class Project:
 
     def load(self, path):
         """
-        The load function allows all bin files in an EMSE workspace to be loaded into the Project.data
-        For this to work, call the load function and provide the path to the folder containing all ppt files (i.e. EMSE > Orginals)
+        The load function allows all bin files in an EMSE workspace to be loaded into self.data. Note that this function uses the loaded settings.t and settings.electrodes to label the imported data.  The file name is used to define the PPT # and the Condition ID. For this to work, the ppt ID must follow the last underscore in the project name.
         
-        Note that this function uses the loaded settings.t and settings.electrodes to label the imported data.
-        The file name is used to define the PPT # and the Condition ID. For this to work, the ppt ID must follow the last underscore in the project name.
+        Required arguments:
+        path (str) -- provide a path to where the bins are saved as a string. Ex: r'FULLPATHHERE'
         """
         self.data_path = path
         def split(fname):
@@ -196,6 +215,12 @@ class Project:
         self.data = df    
         
     def load_pickle(name):
+        """
+        If the Project has been generated and saved before, the pickle file can be loaded using this function returning a Project object.
+
+        Required arguments:
+        name (str) -- A string referring to the file being loaded
+        """
         if not isinstance(name, str):
             raise TypeError("Invalid type: %s. Provide a string for the filename." % type(name))
         if not name.endswith(".p"):
@@ -225,21 +250,21 @@ class Project:
         Compute difference scores between conditions for each ppt and store it back into data: minuend - subtrahend = difference
         
         Required arguments:
-        minuend -- the condition id for the minuend
-        subtrahend -- the condition id for the subtrahend
-        difference -- the condition id that the difference will be named
+        minuend (str) -- the condition id for the minuend
+        subtrahend (str) -- the condition id for the subtrahend
+        difference (str) -- the condition id that the difference will be named
         """
-        minuend_df, subtrahend_df = self.get_conditions(minuend), self.get_conditions(subtrahend)
+        minuend_df, subtrahend_df = self.get_conditions(minuend).reset_index(), self.get_conditions(subtrahend).reset_index()
         if difference in self.conditions:
             print("Note that a condition named %s already exists in this project." % difference)
         
         first_electrode, second_electrode = self.settings.electrodes[0], self.settings.electrodes[-1]
         
         difference_df =  minuend_df.loc[:,first_electrode:second_electrode] - subtrahend_df.loc[:,first_electrode:second_electrode] 
-        difference_df['t'] = minuend_df['t']
+        difference_df['PPT'], difference_df['t'] = minuend_df['PPT'], minuend_df['t']
         difference_df['Condition'] = difference
         
-        self.data = pd.concat([NChanShort.data.reset_index(), difference_df.reset_index()], sort = False).set_index(['PPT','Condition'])
+        self.data = pd.concat([self.data, difference_df.set_index(['PPT','Condition'])], sort = False)
         
         print("Successfully computed difference named %s from: %s = %s - %s" % (difference, difference, minuend, subtrahend))
         print("This has been saved back to data.  Note that you will need to update any mean_amps or grands that have already computed.")
@@ -249,16 +274,17 @@ class Project:
         Compute an average of certain conditions for each participant
         
         Required arguments:
-        inputs -- a list of conditions that are in the data to be average for each ppt
-        output -- a condition name for the output average
+        inputs (list of str) -- a list of conditions that are in the data to be average for each ppt
+        output (str) -- a condition name for the output average
         """
         if type(inputs) != list:
             raise TypeError("Provided inputs list is of type: %s. Please provide a list of strings." % type(inputs))
         
         if any(input not in self.conditions for input in inputs):
             raise ValueError("One of the provided conditions was not found.")
-        
-        output_df = self.data.loc[idx[:,inputs],:].reset_index().groupby(['PPT','t']).mean().reset_index
+			
+        idx = pd.IndexSlice
+        output_df = self.data.loc[idx[:,inputs],:].reset_index().groupby(['PPT','t']).mean().reset_index()
         output_df['Condition'] = output
         
         self.data = pd.concat([self.data.reset_index(), output_df], sort = False).set_index(['PPT','Condition'])
@@ -266,6 +292,15 @@ class Project:
         print("This has been saved back to data.  Note that you will need to update any mean_amps or grands that have already computed.")
     
     def compute_grands(self, name, ppts = []):
+        """
+        Compute grands for all or a subset of ppts
+
+        Required arguments:
+        name (str) -- the key under which this grands DataFrame will be saved in the dict self.grands
+
+        Optional arguments:
+        ppts (list of int) -- the ppts that will be included in these grands. default: [] which includes all ppts 
+        """
         if ppts:
             df = self.data.loc[ppts]
         else:
@@ -273,7 +308,16 @@ class Project:
             
         self.grands[name] = df.groupby(['Condition','t']).mean()
     
-    def compute_mean_amps(self, name, time_windows):
+    def compute_mean_amps(self, name, time_windows = 'default'):
+        """
+        Compute mean amplitudes for specific time_windows
+
+        Required arguments:
+        name (str) -- the key under which this mean_amps DataFrame will be saved in the dict self.mean_amps
+
+        Optional arguments:
+        time_windows (str, list or dict) -- a str key for predefined time_windows in self.settings.time_windows OR a list of time windows (automatically will be named t1, t2, etc) OR a dict with time windows and custom labels. default: 'default'
+        """
         time_windows = self.settings.time_windows.get(time_windows, time_windows)
         
         if type(time_windows) == dict:
@@ -281,7 +325,7 @@ class Project:
         elif type(time_windows) == list:
             labels = ["t%s" % (t + 1) for t in range(len(time_windows))]
         else:
-            raise TypeError("Provide a list or dict to define time_windows. Provided time_windows: %s of type %s is not valid" % (time_windows, type(time_windows)))
+            raise TypeError("Provide a str key for pre-defined time_windows in self.settings.time_windows or provide a list or dict to define time_windows. Provided time_windows: %s of type %s is not valid" % (time_windows, type(time_windows)))
             
         if not all((type(time_window) == tuple) & (len(time_window) == 2) for time_window in time_windows):
             raise TypeError("Ensure that all provided time windows are tuples of 2 elements.")
@@ -301,6 +345,12 @@ class Project:
         self.mean_amps[name] = mean
     
     def get_conditions(self, condition_id):
+        """
+        Retrieve a subset of conditions (single or multiple) from self.data
+
+        Required arguments:
+        condition_id (str or list) -- a condition id or a list of condition ids that are in self.data
+        """
         idx = pd.IndexSlice
         if type(condition_id) == list:
             if any(condition not in self.conditions for condition in condition_id):
@@ -314,34 +364,223 @@ class Project:
                 raise ValueError("Provided condition: %s, is not in loaded data." % (condition_id))
     
     def ppt(self, ppt_id):
+        """
+        Retrieve data for a single ppt
+
+        Required arguments:
+        ppt_id (int) -- an int ppt id in self.data
+        """
         if ppt_id in self.data.index.get_level_values('PPT'):
             return self.data.loc[ppt_id]
         else:
             raise ValueError("Provided PPT ID: %s, is not in loaded data." % (ppt_id))
-        
-    def plot_EEG(self, source, conditions, colours = None, electrodes='midlines', linestyles = None, fig_title = 'placeholder_title', y_axis_range = None, see_log = True, axis_formatting = True, Y = 13, X = 7):
+    
+    def plot_topomap(self, source, conditions, time, vrange = None, fig_title='placeholder_title', show_sensors=False, show_head=True, nlevels=10, contour = True, X = 5, Y = 5):
         """
-        This function allows you to plot ERPs in multiple different ways, assuming you have already loaded into conditions the necessary data.
+        Plot a topomap of one or multiple conditions with either contourf or pcolor
+        
+        Required arguments:
+        source (pandas df) -- this is a source for the data, this can be any dataframe with conditions as the index, electrodes as columns and a 't' column. It will likely be a self.grands['NAME'] OR self.ppt(PPTID)
+		conditions (str or list) -- this can be a single string, a one dimensional or two dimensional list of strings. Ex: 'Condition1' OR ['Condition1','Condition2'] OR [['Condition1','Condition2'],['Condition3','Condition4']]
+		time (list, int or float) -- this should be a list of 2 values [lower, upper], or a single timepoint (int or float)
+        
+		Optional arguments:
+        vrange (list or None) -- if None, uses the min and max values of the data. If list, uses the structure [lower, upper]. default: None
+		fig_title (str) -- the name the pdf will be saved as. default: 'placeholder_title'
+		show_sensors (bool) -- if True, dots will be placed on the plot to represent where sensors may be found. default: False
+		show_head (bool) -- if True, the head outline will be shown. default: True
+		nlevels (int) -- number of levels if a contour is used.  If contour style not used, this argument is ignored. default: 10
+		contour (bool) -- if True, contourf will be used with numebr levels specified by nlevels. Else, pcolor will be used. default: True
+		X (int or float) -- This value times the number of plots on the x axis determines the length of the plot. Tinker with this value and Y if the aspect ratio is off. default: 5
+		Y (int or float) -- This value times the number of plots on the y axis determines the height of the plot. Tinker with this value and X if the aspect ratio is off. default: 5
+        """
+        def _in_range(val,arr):
+            arr = np.array(arr)
+            if isinstance(val,list):
+                for i in val:
+                    if arr.min() <= i <= arr.max():
+                        continue
+                    else:
+                        return False
+                else:
+                    return True
+            elif isinstance(val,int) or isinstance(val,float):
+                if arr.min() <= val <= arr.max():
+                    return True
+                else:
+                    return False
+            else:
+                raise TypeError('Provided value is of invalid type. Provide a list, int or float value')
 
-        You may plot any number of conditions (Note that any more than 3-4 becomes very hard to read).  
-            To load conditions, simply specifiy the conditions in an array: ['Cond1','Cond2']
-            These conditions must already be loaded using load_data
-            You may print(conditions) to see which conditions have already been loaded.
+        first_electrode = self.settings.electrodes[0]
+        last_electrode = self.settings.electrodes[len(self.settings.x) - 1]
+        r,c = self.dimensions(conditions)
+        fig,axes = plt.subplots(r,c,figsize=(X*c,Y*r))
 
-        You may also customize the colours and linestyles using arrays:
-            ex: colours = ['blue','red'], linestyles = ['-',':']
-            for a blue solid line and a red dashed line
+        if isinstance(conditions,str):
+            conditions = [conditions]
 
-        You may plot any combination of electrodes as a single plot, a row, column or grid.  
-            To do so, specify an array or matrix of electrodes:
-            ex: [[''F3,'Fz','F4'],['FC3','FCz','FC4'],['C3','Cz','C4']]
-            Or select a preset: midlines, ROI_lateral, ROI_medial, etc
+        z = {} #1D information
+        Z = {} #interpolated data
 
-        Specify a fig_title or the file will be saved as placeholder_title.pdf
+        idx = pd.IndexSlice
 
-        Specify a y_axis_range as an array of 2 values: [min, max]
+        #parse time input and create appropriate z variables
+        if isinstance(time,list):
+            if len(time) == 2:
+                if _in_range(time,self.settings.t):
+                    print(time)
+                    lower, upper = time[0], time[1]
+                    if lower < upper:
+                        if r > 1:
+                            for row in conditions:
+                                for condition in row:
+                                    z[condition] = source.loc[idx[condition, lower:upper],first_electrode:last_electrode].mean()
+                        else:
+                            for condition in conditions:
+                                z[condition] = source.loc[idx[condition, lower:upper],first_electrode:last_electrode].mean()
+                    else:
+                        raise ValueError('Ensure that the range you provide is defined as [lower,upper]')
+                else:
+                    raise ValueError('Provided array contains elements outside of time range')
+            else:
+                raise ValueError('Provided time range: %s, should only have 2 elements' % time)
+        elif isinstance(time,float) or isinstance(time,int):
+            if _in_range(time,self.settings.t):
+                if time not in self.settings.t:
+                    time_adj = time - ((time - self.settings.epoch['start']) % self.settings.sampling_interval)
+                    print("Provided time: %s, was adjusted to: %s." % (time, time_adj))
+                    time = time_adj
+                if r > 1:
+                    for row in conditions:
+                        for condition in row:
+                            z[condition] = source.loc[idx[condition, time],first_electrode:last_electrode]
+                else:
+                    for condition in conditions:
+                        z[condition] = source.loc[idx[condition, time],first_electrode:last_electrode]
+            else:
+                raise ValueError('Provided time: %s, is out of range' % time) 
+        else:
+            raise TypeError('Provided time: %s of %s type, is invalid. Enter a range or a single time point' % (time,type(time)))
 
-        Set see_log to false if you don't want the log to be printed to console (it will still save a text file)
+        #set vmax and vmin from provided parameters or data
+        if isinstance(vrange,list):
+            if len(vrange) == 2:
+                vmin, vmax = vrange[0], vrange[1]
+                if vmin > vmax:
+                    raise ValueError('Ensure that vrange is provided in form [min,max].')
+            else:
+                raise ValueError('Provided vrange has %s elements. Should only have 2.' % (len(vrange)))
+        elif vrange == None:
+            vmin, vmax = np.inf, np.NINF
+            for condition, data in z.items():
+                temp_vmin, temp_vmax = data.min(), data.max() 
+                if temp_vmax > vmax:
+                    vmax = temp_vmax
+                if temp_vmin < vmin:
+                    vmin = temp_vmin
+            vmin *= 1.1
+            vmax *= 1.1
+        else:
+            raise TypeError('Provided vrange: %s of %s type is invalid. Enter a range [min,max] or None.' % (vrange,type(vrange)))
+
+        print('The range is %s to %s.' % (vmin,vmax))
+
+        triangles = tri.Triangulation(self.settings.x, self.settings.y)
+        for condition in z:
+            tri_interp = tri.CubicTriInterpolator(triangles, z[condition])
+            Z[condition] = tri_interp(self.settings.X, self.settings.Y)
+
+        def _plot_topomap(ax, contour, Z):
+            global cm
+
+            if contour:
+                cm = ax.contourf(self.settings.X,self.settings.Y,Z,np.arange(vmin,vmax + .1,(vmax-vmin)/nlevels),cmap=plt.cm.jet, vmax=vmax, vmin=vmin)
+            else:
+                cm = ax.pcolor(self.settings.X, self.settings.Y,Z, cmap=plt.cm.jet, vmax=vmax, vmin=vmin)
+
+            #formatting changes to set the plot size and remove axes 
+            ax.axis('off')
+            ax.set_ylim([-1.2,1.2])
+            ax.set_xlim([-1.2,1.2])
+
+            #mask electrodes that don't fit in the circle i.e. PO3 PO4 and Iz
+            mask = patches.Wedge((0,0),1.6,0,360,width=0.6, color='white')
+            ax.add_artist(mask)
+
+            if show_sensors:
+                ax.plot(x,y, color = "#444444", marker = "o", linestyle = "", markersize=2)
+
+            if show_head:
+                #draw
+                head_border = plt.Circle((0, 0), 1, color='black', fill=False)
+                LNose = lines.Line2D([-0.087,0],[0.996,1.1], color='black', solid_capstyle = 'round', lw = 1)
+                RNose = lines.Line2D([ 0.087,0],[0.996,1.1], color='black', solid_capstyle = 'round', lw = 1)
+                LEar = patches.Wedge((-1,0), 0.1, 90, 270, width=0.0025, color='black')
+                REar = patches.Wedge((1,0), 0.1, 270, 90, width=0.0025, color='black')
+
+                #add
+                ax.add_artist(head_border)
+                ax.add_line(LNose)
+                ax.add_line(RNose)
+                ax.add_artist(LEar)
+                ax.add_artist(REar)
+
+        i = 0
+        if r > 1: #grid or col
+            for row in axes:
+                if c > 1: #grid
+                    j = 0
+                    for ax in row:
+                        _plot_topomap(ax, contour, Z[conditions[i][j]])
+                        j += 1
+                else: #col
+                    _plot_topomap(row, contour, Z[conditions[i][0]])
+                i += 1
+        elif c > 1: #row
+            for ax in axes:
+                _plot_topomap(ax, contour, Z[conditions[i]])
+                i += 1
+        else: #single plot
+            _plot_topomap(axes, contour, Z[conditions[0]])
+
+        #adjust plot and add color bar
+        fig.subplots_adjust(right=0.8, top = 0.85, bottom = 0.15)
+        cbar_ax = fig.add_axes([0.85, 0.15, 0.025, 0.7])
+        fig.colorbar(cm, cax = cbar_ax)
+
+        #save file
+        path = 'Plots' + os.sep + "%sppts" % (self.N) + os.sep
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        if isinstance(fig_title, str):
+            if not fig_title.endswith(".pdf"):
+                fig_title += '.pdf'
+
+        fig.savefig(path + fig_title, format='pdf')
+        fig.patch.set_facecolor('white')
+        print('Plotted successfully! Navigate to %s to find %s' % (path, fig_title))
+        
+    def plot_EEG(self, source, conditions, electrodes='midlines', colours = None, linestyles = None, fig_title = 'placeholder_title', y_axis_range = None, see_log = True, axis_formatting = True, Y = 13, X = 7):
+        """
+        Plot ERP waveforms for any number of conditions (optimal viewing at 1-4 conditions) with any colours, linestyles and arrangement of electrodes. You must set a y_axis_range or each electrode plot will have its own y_axis_range
+
+        Required arguments:
+        source (pandas df) -- this is a source for the data, this can be any dataframe with conditions as the index, electrodes as columns and a 't' column. It will likely be a self.grands['NAME'] OR self.ppt(PPTID)
+        conditions (str or list) -- this can be a single string or a list of strings. Ex: 'Condition1' OR ['Condition1','Condition2']
+
+        Optional arguments:
+        electrodes (str or list of str or list of list of str) -- a string specifying a layout found in self.settings.electrode_layouts OR a 1 or 2 dimensional list of electrodes ex: 'midlines' OR ['Fz','FCz'], [['Fz'],['FCz']], [['Fz','FCz'],['Cz','CPz']] default: 'midlines'
+        colours (None or list of str) -- a list of colours as strings (ex: ['black','red']). The number of colours should match the number of provided conditions or left as None for default colours = ['black', 'red', 'blue', 'purple', ... all others default to black]
+        linestyles (None or list) -- a list of linestyles as strings (allowed = ':' for dotted, '-' for solid, '-.' for dash and dot, '--' for dashed) or left as None for default linestyles = all solid
+        fig_title (str) -- the name the pdf will be saved as. default: 'placeholder_title'
+        y_axis_range (None or list of int) -- the range of the y axis as [lower, upper] or if left as None, the range is left as default for each individual plot. default: None
+        see_log (bool) -- if True, print the log text file. Regardless, the log will be printed as a text file with name fig_title. default: True
+
+        Optional arguments you shouldn't need to change:
+        axis_formatting (bool) -- if True, apply custom axis formatting. Debugging use only. default: True
+        Y, X (int) -- both Y and X can be set to change aspect ratio.  13 and 7 have been set as defaults respectively through trial and error.
         """
         if colours == None:
             colours = self.settings.default_colours
@@ -431,7 +670,7 @@ class Project:
 
         fig.set_tight_layout(True)
 
-        path = 'Plots' + os.sep
+        path = 'Plots' + os.sep + "%sppts" % (self.N) + os.sep
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -452,11 +691,21 @@ class Project:
                 print(line)
             f.close()
 
-        fig.savefig(path + fig_title + '.pdf',format='pdf',dpi=1200)
+        if isinstance(fig_title, str):
+            if not fig_title.endswith(".pdf"):
+                fig_title += '.pdf'
+
+        fig.savefig(path + fig_title,format='pdf',dpi=1200)
         fig.patch.set_facecolor('white')
-        print('\nPlotted successfully! Navigate to %s to find %s.pdf\n' % (path, fig_title))
+        print('\nPlotted successfully! Navigate to %s to find %s\n' % (path, fig_title))
 
     def dimensions(self, _input):
+        """
+        Used to calculate the dimensions of electrodes in plot_EEG and conditions in plot_topomap. Is left as a public function in the event the user wants to test out a list before using in a function.
+
+        Required arguments:
+        _input (str, list of str or list of list of str)
+        """
         if isinstance(_input,list):
             if isinstance(_input[0],list):
                 x = len(_input)
@@ -471,13 +720,52 @@ class Project:
             x,y = 1,1
         return x,y
     
+    def plot_legend(self, y_axis_range, filename, axis_formatting = True):
+        """
+        Create a legend in the Plots folder with specified y_axis_range
+
+        Required arguments:
+        y_axis_range (list of int) -- a list specified as [lower, upper]
+        filename (str) -- the filename of this legend
+
+        Optional arguments you should not need to change:
+        axis_formatting (bool) -- if True, apply custom axis formatting. Debugging use only. default: True
+        """
+        if isinstance(y_axis_range, list):
+            if len(y_axis_range) == 2:
+                ymin, ymax = y_axis_range[0],y_axis_range[1]
+                if ymin < ymax:
+                    fig = plt.figure(figsize=(13,7))
+                    ax = fig.add_subplot(111, xlabel='Time (ms)', ylabel='Voltage (uV)')
+                    ax.plot(t,[0]*len(t),linewidth=0)
+                    ax.set_ylim(y_axis_range)
+                    if axis_formatting:
+                        ax.spines['bottom'].set_position('zero')
+                        ax.spines['top'].set_color('none')
+                        ax.spines['right'].set_color('none')
+                        for item in ([ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
+                            item.set_fontsize(30)
+                    if isinstance(filename, str):
+                        if not filename.endswith(".pdf"):
+                            filename += '.pdf'
+                    else:
+                        raise TypeError("The provided filename is of type: %s. Please provide a string for the filename." % (type(filename)))
+                    fig.savefig(os.path.join('Plots', filename),format='pdf',dpi=1200)
+                else:
+                    raise ValueError("Ensure range is provided in form [min, max]")
+            else:
+                raise ValueError("Ensure the range provided only contains two values")
+        else:
+            raise TypeError("Ensure the provided range is a list in the form [min, max]")
+
+    
     @property
     def ppts(self):
-        return self.data.index.get_level_values('PPT')
+        return self.data.index.get_level_values('PPT').unique()
     
     @property
     def conditions(self):
-        return self.data.index.get_level_values('Condition')
+        return self.data.index.get_level_values('Condition').unique()
     
     @property
     def N(self):
