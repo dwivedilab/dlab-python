@@ -2,14 +2,34 @@ import os
 import pandas as pd
 from savReaderWriter import * 
 
+def import_from_excel(filename, sheetname):
+    """
+    Imports data from an Excel FIle (.xlsx) into a pandas.DataFrame called 'xl'. 
+
+    Required Arguments:
+    filename (str) -- file name of .xlsx file to be imported as pandas.DataFrame.
+    sheetname (str) -- name of the worksheet in the .xlsx file to be imported as pandas.DataFrame.
+    """
+    if os.path.isfile(filename):
+        xl = pd.ExcelFile(filename)
+    else:
+        raise ValueError('Provided file "%s" cannot be found' % filename)
+    
+    if sheetname in xl.sheet_names:
+        return xl.parse(sheetname)
+    else:
+        raise ValueError('Provided sheet "%s" cannot be found' % sheetname)
+
 def export_to_excel(filename, dfs, output_sheet_names):
     """
-    This function should be run LAST on the Notebook.
-    filename -> file name of exported excel file
-    dfs -> pandas DataFrame(s) to be exported to Excel provided as a [list]. To write mulitiple sheets in one Excel File, provide each DataFrame in the [list]. 
-    output_sheet_names -> Name of the sheet in the exported Excel file. For each DataFrame provided in 'dfs', a sheet name must also be supplied as a [list].
+    Exports and saves the supplied pandas.DataFrame(s) to separate sheets in a single excel file (.xlsx).  This should be run at the end of a notebook.
+    
+    Required Arguments:
+    filename (str) -- file name of exported excel file. Must end with '.xlsx'
+    dfs (list of pandas.DataFrame) -- pandas.DataFrame(s) to be exported to Excel provided as a [list]. To write multiple sheets in one Excel File, provide each DataFrame in the [list]. 
+    output_sheet_names (list of str) -- Name of the sheet in the exported Excel file. For each DataFrame provided in 'dfs', a sheet name must also be supplied as a [list].
     """
-    print("If you are suppling a '.groupby' pandas object as an 'dfs', it is recommended that you use '.unstack' method on the object for this function.\n")
+    print("If you are suppling a '.groupby' pandas object as a 'dfs', it is recommended that you use '.unstack' method on the object for this function.\n")
     if not filename.endswith('.xlsx'):
         raise ValueError("Provided filename (%s) does not contain an Excel extenstion (.xlsx)." % (filename))
     if type(dfs) != list or type(output_sheet_names) != list:
@@ -42,13 +62,18 @@ def export_to_excel(filename, dfs, output_sheet_names):
 
 def export_to_spss(filename, df, reset_index = False, DataType = 0, measure = 'scale', column_width = 8, align = 'right'):
     """
-    This function should be run LAST on the Notebook.
-    filename  -> file name of exported SPSS file
-    df -> pandas.DataFrame to be loaded into SPSS
-    DataType -> Type of data (defined in Variable view of SPSS), default = 0 (Numerical)
-    measure -> Sets measure of data (defined in Variable view of SPSS), default = 'scale'
-    column_width -> Sets width of data column (defined in Variable view of SPSS), default = 8
-    align -> Sets cell alignment for data column (defined in Variable view of SPSS), default = 'right'
+    Exports and saves the supplied pandas.DataFrame to a single SPSS data file (.sav).  This should be run at the end of a notebook.
+
+    Required Arguments:
+    filename (str)  -- file name of exported SPSS file. Must end with '.sav'
+    df (pandas.DataFrame) -- pandas.DataFrame to be loaded into SPSS
+
+    Optional Arguments:
+    reset_index (bool) -- resets the index and adds it to the SPSS data file as a column. Useful in PPT is an index.  default = False (bool)
+    DataType (int) -- Type of data (defined in Variable view of SPSS), default = 0 (Numerical)
+    measure (str) -- Sets measure of data (defined in Variable view of SPSS), default = 'scale'
+    column_width (int) -- Sets width of data column (defined in Variable view of SPSS), default = 8
+    align (str) -- Sets cell alignment for data column (defined in Variable view of SPSS), default = 'right'
     """
     print("If you are suppling a '.groupby' pandas object as an 'dfs', it is recommended that you use '.unstack' method on the object for this function.\n")
     if not filename.endswith(".sav"):
@@ -79,8 +104,10 @@ def export_to_spss(filename, df, reset_index = False, DataType = 0, measure = 's
     else:
         print('\nSuccessfully wrote DataFrame to SPSS file called: %s' % (filename))
 
-def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir = "", merged_output_name = "merged", encoding = "UTF-16"):
-    #Define local functions
+def import_from_eprime(raw_dir, formatted_dir, merged_output_name="", encoding = "UTF-16"):
+    """
+    doc string here
+    """
     def __load_eprime(filename):
         def check(line):
             for drive in ['C','D','E','F','G','H']:
@@ -170,69 +197,21 @@ def import_data(mode = "merge", source = "eprime", raw_dir = "", formatted_dir =
 
         return df
     
-    def __add_eprime():
-        formatted_files = []
-        for formatted_file in os.listdir(formatted_dir):
-            filename = os.fsdecode(formatted_file)
-            if filename.endswith(".txt"):
-                formatted_files.append(filename)
-
-        print(formatted_files)
-        for raw_file in os.listdir(raw_dir):
-            filename = os.fsdecode(raw_file)
-            if filename.endswith(".txt") and filename not in formatted_files:
-                __load_eprime(filename).to_csv(formatted_dir + os.sep + filename, sep='\t',index=False)
-                df = df.append(__load_eprime(filename), ignore_index = True)                
-                print("Successfully exported!")
-        return df
-
-    def __merge_eprime():
-        df = pd.DataFrame()
-        for raw_file in os.listdir(raw_dir):
-            filename = os.fsdecode(raw_file)
-            if filename.endswith(".txt"):
-                df = df.append(__load_eprime(filename), ignore_index = True)
-                print("Successfully appended!")
-        df.to_csv(formatted_dir + os.sep + merged_output_name + '.txt', sep='\t',index=False)
-        return df
-
-    def __add_psychopy():
-        pass
-    
-    def __merge_psychopy():
-        pass
-        
-    #Check if valid source type and create load_type dict
-    if source == "eprime":            
-        print("MAKE SURE E-RECOVERY FILES ARE NOT INCLUDED IN RAW PPT FILES DIRECTORY!!!!!!!!!\n")
-        load_type = {"add":__add_eprime, "merge":__merge_eprime}
-    elif source == "psychopy":
-        load_type = {"add":__add_psychopy, "merge":__merge_psychopy}
-        raise ValueError('PsychoPy methods not yet implemented')
-    else:
-        raise ValueError("Provided source: '%s' is invalid. \nImport is only implemented for 'eprime' and 'psychopy'. \nProvide one of these as the argument for source.")
-
     #Check if raw_dir exists
     if not os.path.exists(raw_dir):
-        raw_dir = "Raw PPT Files"
-        if os.path.exists("Raw PPT Files"):
-            print("Setting raw directory to: Raw PPT Files\n")
-        else:
-            raise ValueError("Provided raw directory: '%s', and default raw directory 'Raw PPT Files' do not exist." % raw_dir)
-        
-    #Check if formatted_dir exists and if not create
+        raise ValueError("Provided raw directory: '%s' does not exist." % raw_dir)
+
+    #Check if formatted_dir exists
     if not os.path.exists(formatted_dir):
-        formatted_dir = "Formatted PPT Files"
-        if os.path.exists("Formatted PPT Files"):
-            print("Setting formatted directory to: Formatted PPT Files")
-        else:
-            print("Provided formatted directory: '%s', and default formatted directory 'Formatted PPT Files' do not exist." % formatted_dir)
-            print("Creating 'Formatted PPT Files' directory.")
-            os.makedirs(formatted_dir)
-            print("Successfully created directory!\n")
-        
-    #Check if valid mode and execute function
-    if mode in load_type:
-        return load_type[mode]()
-    else:
-        raise ValueError("Provided mode: '%s' is invalid. \nImplemented import modes are 'add' and 'merge'. \nProvide one of these as the argument for source.")
+        raise ValueError("Provided formatted directory: '%s' does not exist." % formatted_dir)
+
+    print("MAKE SURE E-RECOVERY FILES ARE NOT INCLUDED IN RAW PPT FILES DIRECTORY!!!!!!!!!\n")
+
+    df = pd.DataFrame()
+    for raw_file in os.listdir(raw_dir):
+        filename = os.fsdecode(raw_file)
+        if filename.endswith(".txt"):
+            df = df.append(__load_eprime(filename), ignore_index = True)
+            print("Successfully appended!")
+    df.to_csv(formatted_dir + os.sep + merged_output_name + '.txt', sep='\t',index=False)
+    return df
