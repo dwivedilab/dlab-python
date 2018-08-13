@@ -85,17 +85,25 @@ class Project:
     A project class which contains EEG data.
 	
 	Public Methods:
-	summary -- print a summary of the Project, or a subset of the summary
-	load -- load EMSE bin files into the Project by providing the EMSE > Original path
-	load_pickle -- load a pickle file to re-initialize a Project object
-	save_pickle -- save a pickle file for later re-initializing
-	compute_diffs -- compute differences between conditions across ppts
-	compute_avgs -- compute averages between conditions across ppts
-	compute_grands -- compute grand averages and save to the self.grands dict
-	compute_mean_amps - compute mean amplitudes and save to the self.mean_amps dict
-	plot_EEG -- plot ERP waveforms
-	plot_topomap -- plot topographic maps
-	...
+    summary -- print a summary of the Project, or a subset of the summary
+    load -- load EMSE bin files into the Project by providing the EMSE > Original path
+    load_pickle -- load a pickle file to re-initialize a Project object
+    save_pickle -- save a pickle file for later re-initializing
+    compute_diffs -- compute differences between conditions across ppts
+    compute_avgs -- compute averages between conditions across ppts
+    compute_grands -- compute grand averages and save to the self.grands dict
+    compute_mean_amps -- compute mean amplitudes and save to the self.mean_amps dict
+    plot_EEG -- plot ERP waveforms
+    plot_topomap -- plot topographic maps
+    dimensions -- for layout of eletrodes for waveform plots, and for layout of conditions for topomaps (returns: x and y)
+    plot_legend -- plots a legend using teh same format as the plot_EEG function legend
+    get_conditions -- retrives data for single or multiple conditions for all participants
+    ppt -- retrieves a single participants data
+
+    Public Properties:
+    ppts -- returns list of participants (get only; type = pandas.Index)
+    conditions -- returns list of condition names (get only; type = pandas.Index)
+    N -- returns number of participants (get only; type = int)
     """
     def __str__(self):
         return self.summary()
@@ -216,10 +224,11 @@ class Project:
         
     def load_pickle(name):
         """
-        If the Project has been generated and saved before, the pickle file can be loaded using this function returning a Project object.
+        If the Project has been generated and saved before, the pickle file can be loaded using this function returning a Project object. Loading from the pickle is faster than loading from the EMSE files each time.
 
         Required arguments:
-        name (str) -- A string referring to the file being loaded
+        name (str) -- A string referring to the file being loaded if the pickle (.p) file is in the same directory as the Notebook (which is the default save location). If not then this requires a full file path. 
+
         """
         if not isinstance(name, str):
             raise TypeError("Invalid type: %s. Provide a string for the filename." % type(name))
@@ -233,6 +242,12 @@ class Project:
             raise ValueError("File with name: %s could not be found." % name)
     
     def save_pickle(self, name):
+        """
+        Saves the active project data as a pickle file in the current working directory. This file can be loaded using load_pickle instead of using load.
+
+        Required arguments:
+        name (str) -- sets the name of the pickle file to be saved (*.p)
+        """
         if not isinstance(name, str):
             raise TypeError("Invalid type: %s. Provide a string for the filename." % type(name))
         if not name.endswith(".p"):
@@ -293,7 +308,7 @@ class Project:
     
     def compute_grands(self, name, ppts = []):
         """
-        Compute grands for all or a subset of ppts
+        Compute grand averages for all participants or for a subset of participants
 
         Required arguments:
         name (str) -- the key under which this grands DataFrame will be saved in the dict self.grands
@@ -580,7 +595,7 @@ class Project:
 
         Optional arguments you shouldn't need to change:
         axis_formatting (bool) -- if True, apply custom axis formatting. Debugging use only. default: True
-        Y, X (int) -- both Y and X can be set to change aspect ratio.  13 and 7 have been set as defaults respectively through trial and error.
+        Y, X (int) -- both Y and X can be set to change the aspect ratio.  13 and 7 have been set as defaults respectively through trial and error.
         """
         if colours == None:
             colours = self.settings.default_colours
@@ -726,7 +741,7 @@ class Project:
 
         Required arguments:
         y_axis_range (list of int) -- a list specified as [lower, upper]
-        filename (str) -- the filename of this legend
+        filename (str) -- the filename of the legend
 
         Optional arguments you should not need to change:
         axis_formatting (bool) -- if True, apply custom axis formatting. Debugging use only. default: True
@@ -763,10 +778,32 @@ class Project:
     def ppts(self):
         return self.data.index.get_level_values('PPT').unique()
     
+    @ppts.setter
+    def ppts(self, input_ppts):
+        if not isinstance(input_ppts,list):
+            raise TypeError("input_ppts must be of type list")
+
+        if any(ppt not in self.ppts for ppt in input_ppts):
+            raise ValueError("Ensure all provided ppts are in self.data")
+
+        idx = pd.indexSlice
+        self.data = self.data.loc[idx[input_ppts,:],:].reset_index().set_index(['PPT','Condition'])
+
     @property
     def conditions(self):
         return self.data.index.get_level_values('Condition').unique()
     
+    @conditions.setter
+    def conditions(self, input_conditions):
+        if not isinstance(input_conditions,list):
+            raise TypeError("input_ppts must be of type list")
+
+        if any(condition not in self.conditions for condition in input_conditions):
+            raise ValueError("Ensure all provided conditions are in self.data")
+            
+        idx = pd.indexSlice
+        self.data = self.data.loc[idx[:,input_conditions],:].reset_index().set_index(['PPT','Condition'])
+
     @property
     def N(self):
         return len(self.ppts)
