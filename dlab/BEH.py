@@ -179,7 +179,7 @@ class Project:
         if missing:
             raise ValueError('The following columns are missing in loaded data: %s' % (", ",join(missing)))
 
-        df = self.data[pd.to_numeric(self.data['RT'], errors='coerce').notnull()]
+        df = self.data[pd.to_numeric(self.data['RT'], errors='coerce').notnull()].loc[:,required_columns]
 
         if isinstance(critical_conditions, list):
             if any(not isinstance(condition, str) for condition in critical_conditions):
@@ -251,7 +251,9 @@ class Project:
         config = self.plot_configs.get(config, config)
         if isinstance(config, plot_config):
             self._plot_reading_times(by = by, conds = config.conds, words = config.words, title = title, c= config.c, fmt = config.fmt, **kwargs)
-
+        else:
+            raise ValueError("Config could not be loaded. Ensure the config is in self.plot_configs")
+            
     def _plot_reading_times(self, by, conds, words, title, c = [], fmt = [], ppts = [], items = [], adj_factor = .05, e_cap = 2, e_width = 1, e_c = 'black', lw = 1, mk = 5, X = 14, Y = 7):
         if not isinstance(self.RTdata, pd.DataFrame):
             raise ValueError("Ensure that data has been loaded and filtered.")
