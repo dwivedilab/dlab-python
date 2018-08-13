@@ -3,7 +3,7 @@ from setuptools import setup, find_packages, Extension
 setup(
     name="dlab",
     packages=['dlab'],
-    version="0.1.4",
+    version="1.0.0",
     description="Python code for Dwivedi Lab",
     author='Janahan Selvanayagam',
     author_email='seljanahan@hotmail.com',
