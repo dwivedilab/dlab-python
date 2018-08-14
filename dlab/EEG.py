@@ -565,7 +565,7 @@ class Project:
         fig.colorbar(cm, cax = cbar_ax)
 
         #save file
-        path = 'Plots' + os.sep + "%sppts" % (self.N) + os.sep
+        path = os.path.join("Plots", "%sppts" % self.N, "EEG")
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -573,7 +573,7 @@ class Project:
             if not fig_title.endswith(".pdf"):
                 fig_title += '.pdf'
 
-        fig.savefig(path + fig_title, format='pdf')
+        fig.savefig(os.path.join(path, fig_title), format='pdf')
         fig.patch.set_facecolor('white')
         print('Plotted successfully! Navigate to %s to find %s' % (path, fig_title))
         
@@ -685,7 +685,7 @@ class Project:
 
         fig.set_tight_layout(True)
 
-        path = 'Plots' + os.sep + "%sppts" % (self.N) + os.sep
+        path = os.path.join("Plots", "%sppts" % self.N, "EEG")
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -710,7 +710,7 @@ class Project:
             if not fig_title.endswith(".pdf"):
                 fig_title += '.pdf'
 
-        fig.savefig(path + fig_title,format='pdf',dpi=1200)
+        fig.savefig(os.path.join(path, fig_title),format='pdf',dpi=1200)
         fig.patch.set_facecolor('white')
         print('\nPlotted successfully! Navigate to %s to find %s\n' % (path, fig_title))
 
