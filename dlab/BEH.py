@@ -380,7 +380,7 @@ class Project:
         df = self._plot_CompQdata(by, conds, ppts, items)['CompQRT']
 
         y, yerr = df.mean(), df.sem()
-
+        print(y)
         fig, ax = plt.subplots(figsize=(X,Y))
         ax.bar(y.index, y, yerr = yerr, color = c, capsize = capsize) 
         if isinstance(y_axis_range, list):
