@@ -343,7 +343,7 @@ class Project:
 
         ax.legend()
 
-        path = "Plots" + os.sep + "%sppts" % self.N
+        path = os.path.join("Plots", "%sppts" % self.N, "BEH")
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -365,7 +365,7 @@ class Project:
         if x_tick_rotation:
             ax.set_xticklabels(y.index, rotation=45, ha='right')
 
-        path = "Plots" + os.sep + "%sppts" % self.N
+        path = os.path.join("Plots", "%sppts" % self.N, "BEH")
         if not os.path.exists(path):
             os.makedirs(path)
 
@@ -391,7 +391,7 @@ class Project:
         if x_tick_rotation:
             ax.set_xticklabels(y.index, rotation=45, ha='right')
 
-        path = "Plots" + os.sep + "%sppts" % self.N
+        path = os.path.join("Plots", "%sppts" % self.N, "BEH")
         if not os.path.exists(path):
             os.makedirs(path)
 
