@@ -469,7 +469,7 @@ class Project:
         if isinstance(input_ppts, list):
             if any(ppt not in self.ppts for ppt in input_ppts):
                 raise ValueError("One of the provided ppts is not in self.data")
-            self.data = self.data[~self.data['PPT'].isin(input_ppts)]
+            self.data = self.data[self.data['PPT'].isin(input_ppts)]
         else:
             raise TypeError("Ensure you are providing a list of ppts.")
 
@@ -482,7 +482,7 @@ class Project:
         if isinstance(input_ppts, list):
             if any(cond not in self.conditions for cond in input_conds):
                 raise ValueError("One of the provided conditions is not in self.data")
-            self.data = self.data[~self.data['Condition'].isin(input_conds)]
+            self.data = self.data[self.data['Condition'].isin(input_conds)]
         else:
             raise TypeError("Ensure you are providing a list of conditions.")
 
