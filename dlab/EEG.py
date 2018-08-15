@@ -786,7 +786,7 @@ class Project:
         if any(ppt not in self.ppts for ppt in input_ppts):
             raise ValueError("Ensure all provided ppts are in self.data")
 
-        idx = pd.indexSlice
+        idx = pd.IndexSlice
         self.data = self.data.loc[idx[input_ppts,:],:].reset_index().set_index(['PPT','Condition'])
 
     @property
@@ -801,7 +801,7 @@ class Project:
         if any(condition not in self.conditions for condition in input_conditions):
             raise ValueError("Ensure all provided conditions are in self.data")
             
-        idx = pd.indexSlice
+        idx = pd.IndexSlice
         self.data = self.data.loc[idx[:,input_conditions],:].reset_index().set_index(['PPT','Condition'])
 
     @property
