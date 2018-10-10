@@ -223,7 +223,16 @@ class Project:
                             df = df.append(_df.set_index(['PPT','Condition']))
                         except:
                             print('Failed to load %s for ppt %s (file name = %s)' % (CID, SID, file))
-        self.data = df    
+        self.data = df
+        # double check to make sure everything is right!
+        print('\n%s condition(s) for %s ppt(s) with %s time slices were loaded' % (len(self.conditions), self.N, len(self.settings.t)))
+        expected_records = len(self.conditions) * self.N * len(self.settings.t)
+        print('So we expect to see %s records.' % (expected_records))
+        print('%s records were actually loaded.' % len(self.data))
+        if expected_records == len(self.data):
+            print('Everything looks in order!\n')
+        else:
+            print("Something doesn't look right - double check to make sure.\n")
         
     def load_pickle(name):
         """
@@ -405,10 +414,10 @@ class Project:
 		Optional arguments:
         vrange (list or None) -- if None, uses the min and max values of the data. If list, uses the structure [lower, upper]. default: None
 		fig_title (str) -- the name the pdf will be saved as. default: 'placeholder_title'
-		show_sensors (bool) -- if True, dots will be placed on the plot to represent where sensors may be found. default: False
+        show_sensors (bool) -- if True, dots will be placed on the plot to represent where sensors may be found. default: False
 		show_head (bool) -- if True, the head outline will be shown. default: True
 		nlevels (int) -- number of levels if a contour is used.  If contour style not used, this argument is ignored. default: 10
-		contour (bool) -- if True, contourf will be used with numebr levels specified by nlevels. Else, pcolor will be used. default: True
+		contour (bool) -- if True, contourf will be used with number levels specified by nlevels. Else, pcolor will be used. default: True
 		X (int or float) -- This value times the number of plots on the x axis determines the length of the plot. Tinker with this value and Y if the aspect ratio is off. default: 5
 		Y (int or float) -- This value times the number of plots on the y axis determines the height of the plot. Tinker with this value and X if the aspect ratio is off. default: 5
         """
@@ -571,6 +580,13 @@ class Project:
         path = os.path.join("Plots", "%sppts" % self.N, "EEG")
         if not os.path.exists(path):
             os.makedirs(path)
+
+        with open(os.path.join(path, fig_title + '.txt'), 'w') as f:
+            f.write('Log file for the plot: %s\n\n' % fig_title)
+            f.write('time: %s ms\n' % time)
+            f.write('vrange: %s uV  to %s uV.\n\n' % (vmin,vmax))
+            f.write('Conditions:\n')
+            f.write(str(conditions))
 
         if isinstance(fig_title, str):
             if not fig_title.endswith(".pdf"):
