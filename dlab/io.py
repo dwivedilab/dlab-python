@@ -46,12 +46,12 @@ def export_to_excel(filename, dfs, output_sheet_names):
             continue
     
     try:
-        writer = pd.ExcelWriter(filename)
+        writer = pd.ExcelWriter(filename, engine = 'xlsxwriter')
         writer.save()
     except PermissionError:
         print("ERROR: Can't save the file while it is open. Please CLOSE the file and run again.")
     else:
-        writer = pd.ExcelWriter(filename)
+        writer = pd.ExcelWriter(filename, engine = 'xlsxwriter')
         for i in range(len(dfs)):
             dfs[i].to_excel(writer,sheet_name=output_sheet_names[i])
             print("Writing DataFrame for Sheet: %s" % (output_sheet_names[i]))
