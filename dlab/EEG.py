@@ -215,11 +215,14 @@ class Project:
                     fpath = os.path.join(root, file)
                     with open(fpath, 'rb') as fid:
                         SID, CID = split(file)
-                        _df = pd.DataFrame(np.fromfile(fid, np.float32).reshape((-1, len(self.settings.electrodes))), columns = self.settings.electrodes)
-                        _df *= 1000000
-                        _df['t'],  _df['Condition'] = self.settings.t, CID
-                        _df['PPT'] = int(re.findall(r'\d+', SID)[0])
-                        df = df.append(_df.set_index(['PPT','Condition']))
+                        try:
+                            _df = pd.DataFrame(np.fromfile(fid, np.float32).reshape((-1, len(self.settings.electrodes))), columns = self.settings.electrodes)
+                            _df *= 1000000
+                            _df['t'],  _df['Condition'] = self.settings.t, CID
+                            _df['PPT'] = int(re.findall(r'\d+', SID)[0])
+                            df = df.append(_df.set_index(['PPT','Condition']))
+                        except:
+                            print('Failed to load %s for ppt %s (file name = %s)' % (CID, SID, file))
         self.data = df    
         
     def load_pickle(name):
