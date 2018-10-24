@@ -10,7 +10,25 @@ pd.options.mode.chained_assignment = None
 
 class Project:
     """
-    BEH.Project CLASS DOCSTRING
+    A Project class which contains BEH data. Has many public functions in order to organize and manipulate data, as well as plot BEH data.
+    
+    Public Methods:
+    CompQdata -- Two-dimensional size-mutable, potentially heterogeneous tabular data structure with labeled axes (rows and columns). Arithmetic operations align on both row and column labels. Can be thought of as a dict-like container for Series objects. The primary pandas data structure.
+    compute_avgs -- Compute an average of certain conditions for each participant
+    get_CompQdata -- Pulls CompQdata from Project.data Dataframe
+    get_RTdata -- Pulls the RT data from the Project.data Dataframe, removes extreme response times between specified window, finds missing data, and removes outliers by specified number of St. Devs.
+    get_conditions -- Pulls the list of conditions that is stored in Project.data
+    load_pickle -- If the Project has been generated and saved before, the pickle file can be loaded using this function returning a Project object. Loading from the pickle is faster than loading from the EMSE files each time.
+    plot_CompQAcc -- Plotting function that makes a bar graph based on Comprehension Question Accuracy by condition. Can set the name of the outputted file, or to do a by participant or a by item analysis. Plots can be customized with optional arguments.
+    plot_CompQRT -- Plotting function that makes a bar graph based on Response Time (RT) by condition. Can set the name of the outputted file, or set it to do a by participant or a by items analysis. Plots can be customized with optional arguments.
+    plot_configs -- ***
+    plot_reading_times -- Plotting function that makes a bar graph based on Response Time (RT) by condition. Uses preset config information built by the plot_configs function.
+    save_pickle -- Saves the active project data as a pickle file in the current working directory. This file can be loaded into Project using load_pickle instead of using load.
+    
+    Public Properties:
+    ppts -- The Getter -> Returns the list of all participants loaded in self.data, The Setter -> Sets the participants to be used from BEH.data
+    conditions -- The Getter -> Returns the list of all conditions loaded in self.data, The Setter -> Sets the conditions to be used from BEH.data
+    N -- The Getter -> Returns the number of participants loaded in self.data, The Setter -> None Implemented
     """
     def __init__(self, data, load_configs = "", **kwargs):
         self.RTdata = None
@@ -51,6 +69,16 @@ class Project:
         return "A __str__ method has not yet been implemented"
 
     def compute_avgs(self, inputs, outputs, groupby = []):
+        """
+        Compute an average of certain conditions for each participant
+        
+        Required Arguments:
+        inputs (list of str) -- A list of conditions that are in the data to be average for each ppt
+        outputs (list of str) -- Condition names for the output averages
+
+        Optional Arguments:
+        groupby (list of str) -- Data column names to organize output means by. Default = ['PPT','Item']
+        """
         if self.data == None:
             raise ValueError("No data loaded in self.data")
 
@@ -69,6 +97,18 @@ class Project:
         
     def get_RTdata(self, critical_conditions = [], summarize = True, remove_extremes = [200,5000], identify_missing_data = True, filter_outliers = 2):
         """
+        Pulls the RT data from the Project.data Dataframe, removes extreme response times between specified window, finds missing data, and removes outliers by specified number of St. Devs.
+        
+        Required Arguments:
+        critical_conditions (list of str) -- A list of critical conditions to be summarized and pulled from Project.data
+
+        Optional Arguments:
+        summarize (bool) -- If true, outputs a data summary. Default = True
+        remove_extremes (list of int) -- Removes extreme trials that are not between the specified range. Default = [200,5000]
+        identify_missing_data (bool) -- Identifies if there is any missing data points in Project.data. Default = True
+        filter_outliers (int) -- Removes trials if RT for the trial is above or below 2 St. Deviations of a given ppt's average RT. Default = 2
+        
+        Note:
         columns: {'PPT':'Subject', 'WordPos':'Trial', 'Condition':'condition', 'List':'ExperimentName', 'Item':'item', 'RT':'ShowText.RT'}
         """
         def _remove_extremes(df, low = 200, high = 5000, summarize = True):
@@ -230,7 +270,16 @@ class Project:
 
     def get_CompQdata(self):
         """
-        columns = {'PPT':'Subject', 'Condition':'condition', 'List':'', Item':'item', 'CompQAcc':'comprQ_ACC', 'CompQRT':'comprQ_RT'}
+        Pulls CompQdata from Project.data Dataframe
+        
+        Required Arguments:
+        None
+
+        Optional Arguments:
+        None
+        
+        Note:
+        required_columns = ['PPT', 'Condition', 'Item','CompQAcc', 'CompQRT']
         """
         required_columns = ['PPT','Condition', 'Item','CompQAcc','CompQRT']
         if not isinstance(self.data, pd.DataFrame):
@@ -248,6 +297,17 @@ class Project:
         self.CompQdata = self.data.groupby(['PPT','Condition','Item']).mean().loc[:,['CompQAcc','CompQRT']]
 
     def plot_reading_times(self, title, by, config, **kwargs):
+        """
+        Plotting function that makes a bar graph based on Response Time (RT) by condition. Uses preset config information built by the plot_configs function.
+        
+        Required Arguments:
+        title (str) -- Sets the name of the plot file.
+        by (str, either: 'PPT' or 'Item') -- Sets how the averages are done, either by 'PPT', or by 'Item'.
+        config (str) -- Sets the plotting configs to the dictionary name set in this argument.
+
+        Optional Arguments:
+        **kwargs (list of str) -- Renames column names pulled from the data. Default = []
+        """
         config = self.plot_configs.get(config, config)
         if isinstance(config, plot_config):
             self._plot_reading_times(by = by, conds = config.conds, words = config.words, title = title, c= config.c, fmt = config.fmt, **kwargs)
@@ -354,6 +414,23 @@ class Project:
         fig.patch.set_facecolor("white")
 
     def plot_CompQAcc(self, title, by, conds = [], ppts = [], items = [], c = 'blue', X = 5, Y = 5, capsize = 10, x_tick_rotation = False):
+        """
+        Plotting function that makes a bar graph based on Comprehension Question Accuracy by condition. Can set the name of the outputted file, or to do a by participant or a by item analysis. Plots can be customized with optional arguments.
+        
+        Required Arguments:
+        title (str) -- Sets the name of the plot file.
+        by (str, either: 'PPT' or 'Item') -- Sets how the averages are done, either by 'PPT', or by 'Item'.
+        
+        Optional Arguments:
+        conds (list of str) -- List of specific conditions to plot, default plots all conditions. Default = []
+        ppts (list of int) -- List of specific participants to plot, default plots all participants. Default = []
+        items (list of str) -- List of specific items to plot, default plots all items. Default = []
+        c (str) -- Sets the colour of the bars in the bar graph. Accepts many native Matplotlib colours. Default = 'blue'
+        X (int) -- Set the size of the plot by the x-axis. Default = 5
+        Y (int) -- Sets the size of the plot by the y-axis. Default = 5
+        capsize (int) -- Sets the size of the Confidence Interval caps. Default = 10
+        x_tick_rotation (bool) -- Sets if the x-axis labels are straight or rotated (useful if condition names are long). Default = False
+        """
         df = self._plot_CompQdata(by, conds, ppts, items)['CompQAcc']
 
         y, yerr = df.mean(), df.sem() 
@@ -377,6 +454,24 @@ class Project:
         fig.patch.set_facecolor('white')
 
     def plot_CompQRT(self, title, by, conds = [], ppts = [], items = [], c = 'blue', y_axis_range = None, X = 5, Y = 5, capsize = 10, x_tick_rotation = False):
+        """
+        Plotting function that makes a bar graph based on Response Time (RT) by condition. Can set the name of the outputted file, or set it to do a by participant or a by items analysis. Plots can be customized with optional arguments.
+        
+        Required Arguments:
+        title (str) -- Sets the name of the plot file.
+        by (str, either: 'PPT' or 'Item' ) -- Sets how the averages are done, either by 'PPT', or by 'Item'.
+        
+        Optional Arguments:
+        conds (list of str) -- List of specific conditions to plot, default plots all conditions. Default = []
+        ppts (list of int) -- List of specific participants to plot, default plots all participants. Default = []
+        items (list of str) -- List of specific items to plot, default plots all items. Default = []
+        y_axis_range (list of int) -- Sets the lower and upper bounds for the y axis. The default automatically sets a y-axis range. Default = None
+        c (str) -- Sets the colour of the bars in the bar graph. Accepts many native Matplotlib colours. Default = 'blue'
+        X (int) -- Set the size of the plot by the x-axis. Default = 5
+        Y (int) -- Sets the size of the plot by the y-axis. Default = 5
+        capsize (int) -- Sets the size of the Confidence Interval caps. Default = 10
+        x_tick_rotation (bool) -- Sets if the x-axis labels are straight or rotated (useful if condition names are long). Default = False
+        """
         df = self._plot_CompQdata(by, conds, ppts, items)['CompQRT']
 
         y, yerr = df.mean(), df.sem()
@@ -415,7 +510,6 @@ class Project:
 
         Required arguments:
         name (str) -- A string referring to the file being loaded if the pickle (.p) file is in the same directory as the Notebook (which is the default save location). If not then this requires a full file path. 
-
         """
         if not isinstance(name, str):
             raise TypeError("Invalid type: %s. Provide a string for the filename." % type(name))
@@ -448,6 +542,12 @@ class Project:
         pickle.dump(self, open(name, 'wb'))
 
     def get_conditions(self, conditions):
+        """
+        Pulls the list of conditions that is stored in Project.data
+        
+        Required Arguments:
+        critical_conditions (list of str) -- A list of critical conditions to be summarized and pulled from Project.data
+        """
         if isinstance(conditions, list):
             if any(condition not in self.data['Condition'].unique() for condition in conditions):
                 raise ValueError('One of the provided conditions is invalid.')
@@ -458,14 +558,26 @@ class Project:
 
     @property
     def N(self):
+        """
+        Returns the number of participants loaded in self.data
+        """
         return len(self.ppts)
 
     @property
     def ppts(self):
+        """
+        Returns the list of all participants loaded in self.data
+        """
         return self.data['PPT'].unique()
 
     @ppts.setter
     def ppts(self, input_ppts):
+        """
+        Sets the participants to be used from BEH.data
+        
+        Required Arguments:
+	    input_ppts (list of int) -- list of participant numbers to be used
+        """
         if isinstance(input_ppts, list):
             if any(ppt not in self.ppts for ppt in input_ppts):
                 raise ValueError("One of the provided ppts is not in self.data")
@@ -475,10 +587,19 @@ class Project:
 
     @property
     def conditions(self):
+        """
+        Returns the list of all conditions loaded in self.data
+        """
         return self.data['Condition'].unique()
 
     @conditions.setter
     def conditions(self, input_conds):
+        """
+        Sets the conditions to be used from BEH.data
+        
+        Required Arguments:
+	    input_conditions (list of str) -- list of conditions to be used
+        """
         if isinstance(input_ppts, list):
             if any(cond not in self.conditions for cond in input_conds):
                 raise ValueError("One of the provided conditions is not in self.data")
