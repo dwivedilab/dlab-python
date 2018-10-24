@@ -106,7 +106,15 @@ def export_to_spss(filename, df, reset_index = False, DataType = 0, measure = 's
 
 def import_from_eprime(raw_dir, formatted_dir, merged_output_name="", encoding = "UTF-16"):
     """
-    doc string here
+    Imports data from all behavioural Eprime Excel formatted data files (.txt) in a specific directory. The data is then merged into one file (.txt) that can be imported into Project.data.
+    
+    Required Arguments:
+    raw_dir (str) -- File path of the folder with the Eprime (.txt) files to be imported as pandas.DataFrame.
+    formatted_dir (str) -- File path of the folder to put the formatted files output the formatted.
+    merged_output_name (str) -- Name of the output merged file (.txt).
+    
+    Optional Arguments:
+    encoding (str) -- Encoding to use when python opens the Eprime files (.txt). Default encoding for Eprime 2.0 is UTF-16. Default = 'UTF-16'
     """
     def __load_eprime(filename):
         def check(line):
