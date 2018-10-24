@@ -796,7 +796,7 @@ class Project:
     @property
     def ppts(self):
 	"""
-	Returns the list of all participants loaded in self.data
+	Returns the list of all participants loaded in self.data.
 	"""
         return self.data.index.get_level_values('PPT').unique()
     
