@@ -795,10 +795,19 @@ class Project:
     
     @property
     def ppts(self):
+	"""
+	Returns the list of all participants loaded in self.data
+	"""
         return self.data.index.get_level_values('PPT').unique()
     
     @ppts.setter
     def ppts(self, input_ppts):
+	"""
+	Sets the participants to be used from EEG.data
+	
+	Required Arguments:
+	input_ppts (list of int) -- list of participant numbers to be used
+	"""
         if not isinstance(input_ppts,list):
             raise TypeError("input_ppts must be of type list")
 
@@ -810,10 +819,19 @@ class Project:
 
     @property
     def conditions(self):
+	"""
+	Returns the list of all conditions loaded in self.data
+	"""
         return self.data.index.get_level_values('Condition').unique()
     
     @conditions.setter
     def conditions(self, input_conditions):
+	"""
+	Sets the conditions to be used from EEG.data
+	
+	Required Arguments:
+	input_conditions (list of str) -- list of conditions to be used
+	"""
         if not isinstance(input_conditions,list):
             raise TypeError("input_ppts must be of type list")
 
@@ -825,4 +843,7 @@ class Project:
 
     @property
     def N(self):
+	"""
+	Returns the number of participants loaded in self.data
+	"""
         return len(self.ppts)
