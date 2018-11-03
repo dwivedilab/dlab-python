@@ -21,7 +21,6 @@ class Project:
     load_pickle -- If the Project has been generated and saved before, the pickle file can be loaded using this function returning a Project object. Loading from the pickle is faster than loading from the EMSE files each time.
     plot_CompQAcc -- Plotting function that makes a bar graph based on Comprehension Question Accuracy by condition. Can set the name of the outputted file, or to do a by participant or a by item analysis. Plots can be customized with optional arguments.
     plot_CompQRT -- Plotting function that makes a bar graph based on Response Time (RT) by condition. Can set the name of the outputted file, or set it to do a by participant or a by items analysis. Plots can be customized with optional arguments.
-    plot_configs -- ***
     plot_reading_times -- Plotting function that makes a bar graph based on Response Time (RT) by condition. Uses preset config information built by the plot_configs function.
     save_pickle -- Saves the active project data as a pickle file in the current working directory. This file can be loaded into Project using load_pickle instead of using load.
     
@@ -31,6 +30,16 @@ class Project:
     N -- The Getter -> Returns the number of participants loaded in self.data, The Setter -> None Implemented
     """
     def __init__(self, data, load_configs = "", **kwargs):
+        """
+        To initialize a new BEH.Project
+
+        Required arguments:
+        data (pd.DataFrame) -- a pandas dataframe containing all data for a BEH.Project. Will be stored in self.data with columns renamed as per provided **kwargs
+
+        Optional arguments:
+        load_configs (str) -- key for BEH.plot_configs dict used for formatting RT plots. If provided load_configs is not a valid key, an empty dict is loaded insto self.plot_configs. Default = ""
+        **kwargs (str) -- keyword arguments are used to rename columns where the keyword becames the new name of the column provided as the argument. i.e. PPT = 'Subject' means the column 'Subject' in data will be renamed as 'PPT'.
+        """
         self.RTdata = None
         self.CompQdata = None
         self.plot_configs = plot_configs.get(load_configs, {})
@@ -99,17 +108,15 @@ class Project:
         """
         Pulls the RT data from the Project.data Dataframe, removes extreme response times between specified window, finds missing data, and removes outliers by specified number of St. Devs.
         
-        Required Arguments:
-        critical_conditions (list of str) -- A list of critical conditions to be summarized and pulled from Project.data
-
         Optional Arguments:
-        summarize (bool) -- If true, outputs a data summary. Default = True
-        remove_extremes (list of int) -- Removes extreme trials that are not between the specified range. Default = [200,5000]
-        identify_missing_data (bool) -- Identifies if there is any missing data points in Project.data. Default = True
-        filter_outliers (int) -- Removes trials if RT for the trial is above or below 2 St. Deviations of a given ppt's average RT. Default = 2
+        critical_conditions (list of str) -- A list of critical conditions to be summarized and pulled from Project.data. You meave leave as an empty list to load all RT data (not recommended). Default = []
+        summarize (bool) -- If true, outputs a summary of filtering process. Recommended to leave as True. Default = True
+        remove_extremes (list of int) -- *Removes* extreme trials that are not between the specified range. You may provide an empty list or False to not remove any data (not recommended). Default = [200,5000]
+        identify_missing_data (bool) -- Identifies if any data points are missing after remove_extremes by PPT & by items. Recommended to leave as True. Default = True
+        filter_outliers (int) -- *Filters* outlier data points where data points above/below 2 SDs of group mean are replaced with group mean. Group is PPT X Condition X WordPos or Item X Condition X WordPos. Default = 2
         
         Note:
-        columns: {'PPT':'Subject', 'WordPos':'Trial', 'Condition':'condition', 'List':'ExperimentName', 'Item':'item', 'RT':'ShowText.RT'}
+        required_columns = ['PPT', 'WordPos', 'Condition', 'Item', 'RT']
         """
         def _remove_extremes(df, low = 200, high = 5000, summarize = True):
             df['RTremove'] = pd.cut(df['RT'], [0, low, high, np.inf], labels=['Below','Ok','Above'])
@@ -243,15 +250,18 @@ class Project:
 
             print("\nThere are %s records." % len(df.index))
 
-        if isinstance(remove_extremes, list):
-            if len(remove_extremes) == 2:
-                low, high = remove_extremes[0], remove_extremes[1]
-                if low < high:
-                    df = _remove_extremes(df, low, high)
-                else:
-                    raise ValueError("Ensure the provided low value (%s) is lower than the provided high value (%s)." % (low, high))
-        elif remove_extremes != None:
-            raise TypeError("Provide a list [lower, upper] or None.  Provided remove_extremes of type: %s is invalid." % type(remove_extremes))
+        if remove_extremes:
+            if isinstance(remove_extremes, list):
+                if len(remove_extremes) == 2:
+                    low, high = remove_extremes[0], remove_extremes[1]
+                    if low < high:
+                        df = _remove_extremes(df, low, high)
+                    else:
+                        raise ValueError("Ensure the provided low value (%s) is lower than the provided high value (%s)." % (low, high))
+            elif remove_extremes != None:
+                raise TypeError("Provide a list [lower, upper] or None.  Provided remove_extremes of type: %s is invalid." % type(remove_extremes))
+        else:
+            print("remove_extremes evaluated as False. Not removing any extreme values.")
 
         if identify_missing_data:
             df = _identify_missing_data(df)
@@ -298,15 +308,15 @@ class Project:
 
     def plot_reading_times(self, title, by, config, **kwargs):
         """
-        Plotting function that makes a bar graph based on Response Time (RT) by condition. Uses preset config information built by the plot_configs function.
+        Plotting function that plots staggered line graphs based on Response Time (RT) by condition. Uses preset config information stored in an instance of BEH.plot_configs class.
         
         Required Arguments:
         title (str) -- Sets the name of the plot file.
         by (str, either: 'PPT' or 'Item') -- Sets how the averages are done, either by 'PPT', or by 'Item'.
-        config (str) -- Sets the plotting configs to the dictionary name set in this argument.
+        config (str or BEH.plot_config) -- config may be a string that is a key in dict self.plot_configs to return a BEH.plot_config object OR config may be a valid BEH.plot_config object
 
         Optional Arguments:
-        **kwargs (list of str) -- Renames column names pulled from the data. Default = []
+        **kwargs -- may be any parameters that modify the output plot except for 'title', by', 'conds', 'words', 'title', 'c' or 'fmt'. See help(BEH.Project._plot_reading_times()) for more info
         """
         config = self.plot_configs.get(config, config)
         if isinstance(config, plot_config):
@@ -315,6 +325,30 @@ class Project:
             raise ValueError("Config could not be loaded. Ensure the config is in self.plot_configs")
             
     def _plot_reading_times(self, by, conds, words, title, c = [], fmt = [], ppts = [], items = [], adj_factor = .05, e_cap = 2, e_width = 1, e_c = 'black', lw = 1, mk = 5, X = 14, Y = 7):
+        """
+        Private method: Plotting function that plots staggered line graphs based on Response Time (RT) by condition. 
+
+        Preferred method for plotting is BEH.Project.plot_reading_times() and uses instances of BEH.plot_config class to make your life easier. While this function can be useful in figuring out how to plot new combinations of conditions, it is recommended that a BEH.plot_config object is created for easy replicability.
+
+        Required arguments:
+        by (str, either: 'PPT' or 'Item') -- Sets how the averages are done, either by 'PPT', or by 'Item'.
+        conds (list of str) -- list of conditions to be plotted.
+        words (dict of int:str) -- a dict containing index-word mappings to map the position of words in the sentence. Should contain an example sentence for the paradigm. See BEH.QBehQ_S1_S2 for an example.
+        title (str) -- title of the plot
+
+        Optional arguments:
+        c (list of str) -- a list of valid matplotlib or html colour names as str. If insufficient colours are provided, default colours will be used to fill until no unique colours remain in which case an error will be thrown. Default = []
+        fmt (list of str) -- a list of formatting styles such as '-^' and '-s'. See matplotlib docs for more examples. If insufficient formatting styles are provided, all remaining linestyles will be '.' Default = []
+        ppts (list of int) -- may be used to plot only a subset of participants from self.RTdata. If empty, all are included. Default = []
+        items (list of str) -- may be used to plot only a subset of items from self.RTdata. If empty, all are included. Default = []
+        adj_factor (float) -- used to determine offset between points. Default = 0.05
+        e_cap (int or float) -- size of error bar caps. Default = 2
+        e_width (int or float) -- error bar thickness. Default = 1
+        e_c (str) -- colour of error bars. Default = 'black'
+        lw (int or float) -- thickness of lines. Default = 1
+        mk (int or float) -- size of markers. Default = 5
+        X & Y (int & int) -- aspect ratio of figure. Default = 14 & 7
+        """
         if not isinstance(self.RTdata, pd.DataFrame):
             raise ValueError("Ensure that data has been loaded and filtered.")
 
@@ -425,10 +459,10 @@ class Project:
         conds (list of str) -- List of specific conditions to plot, default plots all conditions. Default = []
         ppts (list of int) -- List of specific participants to plot, default plots all participants. Default = []
         items (list of str) -- List of specific items to plot, default plots all items. Default = []
-        c (str) -- Sets the colour of the bars in the bar graph. Accepts many native Matplotlib colours. Default = 'blue'
+        c (str) -- Sets the colour of the bars in the bar graph. Accepts any native Matplotlib or HTML colours. Default = 'blue'
         X (int) -- Set the size of the plot by the x-axis. Default = 5
         Y (int) -- Sets the size of the plot by the y-axis. Default = 5
-        capsize (int) -- Sets the size of the Confidence Interval caps. Default = 10
+        capsize (int) -- Sets the size of the error bar caps. Default = 10
         x_tick_rotation (bool) -- Sets if the x-axis labels are straight or rotated (useful if condition names are long). Default = False
         """
         df = self._plot_CompQdata(by, conds, ppts, items)['CompQAcc']
@@ -466,7 +500,7 @@ class Project:
         ppts (list of int) -- List of specific participants to plot, default plots all participants. Default = []
         items (list of str) -- List of specific items to plot, default plots all items. Default = []
         y_axis_range (list of int) -- Sets the lower and upper bounds for the y axis. The default automatically sets a y-axis range. Default = None
-        c (str) -- Sets the colour of the bars in the bar graph. Accepts many native Matplotlib colours. Default = 'blue'
+        c (str) -- Sets the colour of the bars in the bar graph. Accepts any native Matplotlib or HTML colours. Default = 'blue'
         X (int) -- Set the size of the plot by the x-axis. Default = 5
         Y (int) -- Sets the size of the plot by the y-axis. Default = 5
         capsize (int) -- Sets the size of the Confidence Interval caps. Default = 10
@@ -610,6 +644,24 @@ class Project:
         
 
 class plot_config:
+    """
+    A class for storing formatting details for reading time plots.
+
+    Must contain:
+    conds (list of str) -- list of condition names as they appear in the pd.DataFrame
+    words (dict of int:str) -- a dict containing index-word mappings to map the position of words in the sentence. Should contain an example sentence for the paradigm. See BEH.QBehQ_S1_S2 for an example.
+    c (list of str) -- a list of valid matplotlib or html colour names as str.
+    fmt (list of str) -- a list of formatting styles such as '-^' and '-s'. See matplotlib docs for more examples.
+
+    EXAMPLE:
+    plot_config(['AP','AS','CP','CS'], {2:'Every',3:'kid',4:'climbed',5:'a/that/those',6:'tree(s).'}, ['red','orange','green','blue'], ['-^','-^','-s','-s'])
+
+    See BEH.plot_configs for more examples.
+
+    You may print any BEH.plot_config object for a summary.
+
+    If you create a new plot_config object, consider contributing by adding it to dlab.BEH.plot_configs!
+    """
     def __str__(self):
         output += "\n\nConditions:"
         for i in range(len(self.conds)):
