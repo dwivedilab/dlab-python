@@ -46,7 +46,10 @@ def export_to_excel(filename, dfs, output_sheet_names):
             continue
     
     try:
-        writer = pd.ExcelWriter(filename, engine = 'xlsxwriter')
+        try:
+            writer = pd.ExcelWriter(filename, engine = 'xlsxwriter')
+        except ModuleNotFoundError:
+            print("You need to install module xlsxwriter to be able to write excel files.")
         writer.save()
     except PermissionError:
         print("ERROR: Can't save the file while it is open. Please CLOSE the file and run again.")
