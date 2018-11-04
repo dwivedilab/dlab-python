@@ -345,7 +345,11 @@ class Project:
         Optional arguments:
         time_windows (str, list or dict) -- a str key for predefined time_windows in self.settings.time_windows OR a list of time windows (automatically will be named t1, t2, etc) OR a dict with time windows and custom labels. default: 'default'
         """
-        time_windows = self.settings.time_windows.get(time_windows, time_windows)
+        if isinstance(time_windows, str):
+            if time_windows in self.settings.time_windows:
+                time_windows = self.settings.time_windows.get(time_windows)
+            else:
+                raise ValueError('Provided time_windows, if str, must be a valid key for self.settings.time_windows. Could not find provided time_windows %s' % time_windows)
         
         if type(time_windows) == dict:
             labels, time_windows = time_windows.keys(), time_windows.values()
@@ -621,8 +625,14 @@ class Project:
         
         if linestyles == None:
             linestyles = self.settings.default_linestyles
-            
-        electrodes = self.settings.electrode_layouts.get(electrodes, electrodes)
+        
+        if isinstance(electrodes, str):
+            if electrodes in self.settings.electrode_layouts:
+                electrodes = self.settings.electrode_layouts.get(electrodes)
+            elif electrodes in self.settings.electrodes:
+                electrodes = [electrodes]
+            else:
+                raise ValueError('If providing a str for electrodes, electrodes must be a valid electrode found in self.settings.electrodes or a name of a valid layout found in self.settings.electrode_layouts. %s is not valid' % electrodes)
         
         x,y = self.dimensions(electrodes)
         fig,axes = plt.subplots(x,y,figsize=(y*Y,x*X))

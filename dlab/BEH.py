@@ -42,7 +42,11 @@ class Project:
         """
         self.RTdata = None
         self.CompQdata = None
-        self.plot_configs = plot_configs.get(load_configs, {})
+        if isinstance(load_configs, str):
+            self.plot_configs = plot_configs.get(load_configs, {})
+        else:
+            raise TypeError('Provided load_configs must be a str that is a valid key for BEH.plot_configs or an empty string. Input of type %s is invalid' % type(load_configs))
+
         if not isinstance(self.plot_configs, dict):
             raise TypeError("self.plot_configs is of type: %s instead of dict." % type(self.plot_configs))
 
@@ -318,11 +322,13 @@ class Project:
         Optional Arguments:
         **kwargs -- may be any parameters that modify the output plot except for 'title', by', 'conds', 'words', 'title', 'c' or 'fmt'. See help(BEH.Project._plot_reading_times()) for more info
         """
-        config = self.plot_configs.get(config, config)
+        if isinstance(config, str):
+            config = self.plot_configs.get(config, config)
+
         if isinstance(config, plot_config):
             self._plot_reading_times(by = by, conds = config.conds, words = config.words, title = title, c= config.c, fmt = config.fmt, **kwargs)
         else:
-            raise ValueError("Config could not be loaded. Ensure the config is in self.plot_configs")
+            raise ValueError("Config could not be loaded. Ensure the config is in self.plot_configs or is a valid BEH.plot_configs object")
             
     def _plot_reading_times(self, by, conds, words, title, c = [], fmt = [], ppts = [], items = [], adj_factor = .05, e_cap = 2, e_width = 1, e_c = 'black', lw = 1, mk = 5, X = 14, Y = 7):
         """
