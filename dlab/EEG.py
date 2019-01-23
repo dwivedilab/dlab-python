@@ -781,7 +781,7 @@ class Project:
                 if ymin < ymax:
                     fig = plt.figure(figsize=(13,7))
                     ax = fig.add_subplot(111, xlabel='Time (ms)', ylabel='Voltage (uV)')
-                    ax.plot(t,[0]*len(t),linewidth=0)
+                    ax.plot(self.settings.t,[0]*len(self.settings.t),linewidth=0)
                     ax.set_ylim(y_axis_range)
                     if axis_formatting:
                         ax.spines['bottom'].set_position('zero')
