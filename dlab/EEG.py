@@ -5,6 +5,7 @@ from math import ceil
 import numpy as np
 import pandas as pd
 # matplotlib import statements - this is the plotting library
+import matplotlib as mpl
 import matplotlib.pyplot as plt  # plotting
 import matplotlib.tri as tri  # tri interpolation for the topomaps
 import matplotlib.patches as patches  # used for drawing mask and the ears
@@ -77,9 +78,6 @@ class settings:
                          self.epoch['end'],
                          self.sampling_interval)
     
-    
-    
-
 class Project:
     """
     A project class which contains EEG data.
@@ -93,7 +91,8 @@ class Project:
     compute_avgs -- compute averages between conditions across ppts
     compute_grands -- compute grand averages and save to the self.grands dict
     compute_mean_amps -- compute mean amplitudes and save to the self.mean_amps dict
-    plot_EEG -- plot ERP waveforms
+    plot_EEG -- plot ERP waveforms for a single electrode or a row/column/grid of electrodes and save as pdf
+    plot_electrodes -- plot ERP waveforms for a single electrode (use for custom plotting, does not save)
     plot_topomap -- plot topographic maps
     dimensions -- for layout of eletrodes for waveform plots, and for layout of conditions for topomaps (returns: x and y)
     plot_legend -- plots a legend using teh same format as the plot_EEG function legend
@@ -101,8 +100,8 @@ class Project:
     ppt -- retrieves a single participants data
 
     Public Properties:
-    ppts -- returns list of participants (get only; type = pandas.Index)
-    conditions -- returns list of condition names (get only; type = pandas.Index)
+    ppts -- returns list of participants (get/set; type = pandas.Index)
+    conditions -- returns list of condition names (get/set; type = pandas.Index)
     N -- returns number of participants (get only; type = int)
     """
     def __str__(self):
@@ -582,8 +581,7 @@ class Project:
 
         #save file
         path = os.path.join("Plots", "%sppts" % self.N, "EEG")
-        if not os.path.exists(path):
-            os.makedirs(path)
+        self._save_fig(fig, path, fig_title)
 
         with open(os.path.join(path, fig_title + '.txt'), 'w') as f:
             f.write('Log file for the plot: %s\n\n' % fig_title)
@@ -592,14 +590,9 @@ class Project:
             f.write('Conditions:\n')
             f.write(str(conditions))
 
-        if isinstance(fig_title, str):
-            if not fig_title.endswith(".pdf"):
-                fig_title += '.pdf'
-
-        fig.savefig(os.path.join(path, fig_title), format='pdf')
         fig.patch.set_facecolor('white')
         print('Plotted successfully! Navigate to %s to find %s' % (path, fig_title))
-        
+    
     def plot_EEG(self, source, conditions, electrodes='midlines', colours = None, linestyles = None, fig_title = 'placeholder_title', y_axis_range = None, see_log = True, axis_formatting = True, Y = 13, X = 7):
         """
         Plot ERP waveforms for any number of conditions (optimal viewing at 1-4 conditions) with any colours, linestyles and arrangement of electrodes. You must set a y_axis_range or each electrode plot will have its own y_axis_range
@@ -626,6 +619,23 @@ class Project:
         if linestyles == None:
             linestyles = self.settings.default_linestyles
         
+        while len(colours) < len(conditions):
+            colours.append('black')
+            
+        while len(linestyles) < len(conditions):
+            linestyles.append('-')
+        
+        if isinstance(conditions, str):
+            conditions = [conditions]
+        elif isinstance(conditions,list):
+            if any(not isinstance(condition,str) for condition in conditions):
+                raise TypeError("One of the provided conditions is not a string.")
+        else:
+            raise TypeError("Provided conditions is of invalid type: %s. Provide a string or a list of strings" % (type(conditions)))
+        
+        if any(condition not in source.index for condition in conditions):
+            raise ValueError("One of the provided conditions is not in the provided source.")
+
         if isinstance(electrodes, str):
             if electrodes in self.settings.electrode_layouts:
                 electrodes = self.settings.electrode_layouts.get(electrodes)
@@ -636,112 +646,146 @@ class Project:
         
         x,y = self.dimensions(electrodes)
         fig,axes = plt.subplots(x,y,figsize=(y*Y,x*X))
-        
-        if isinstance(conditions, str):
-            conditions = [conditions]
-        elif isinstance(conditions,list):
-            if not all(isinstance(condition,str) for condition in conditions):
-                raise TypeError("One of the provided conditions is not a string.")
-        else:
-            raise TypeError("Provided conditions is of invalid type: %s. Provide a string or a list of strings" % (type(conditions)))
-        
-        if not all(condition in source.index for condition in conditions):
-            raise ValueError("One of the provided conditions is not in the provided source.")
             
-        while len(colours) < len(conditions):
-            colours.append('black')
-            
-        while len(linestyles) < len(conditions):
-            linestyles.append('-')
 
-
-
-        def _plot_EEG(electrode,r,xaxis=True,yaxis=True):
-            if electrode == None:
-                r.axis('off')
-            else:
-                for k in range(len(conditions)):
-                    linestyle = linestyles[k]
-                    if(linestyle == '--'):                        
-                        r.plot(self.settings.t, source.loc[conditions[k]][electrode], color=colours[k], linestyle=linestyle, dashes = (1,2))
-                    else:
-                        r.plot(self.settings.t, source.loc[conditions[k]][electrode], color=colours[k], linestyle=linestyle)
-                        
-                while isinstance(electrode,list):
-                    electrode = electrode[0]
-                r.text(0.025,0.9,electrode,transform=r.transAxes,fontsize=self.settings.F_size, fontweight=self.settings.F_weight)
-                
-                if isinstance(y_axis_range,list):
-                    r.set_ylim(y_axis_range)
-                    
-                r.spines['bottom'].set_position('zero')
-                r.spines['top'].set_color('none')
-                r.spines['right'].set_color('none')
-                    
-                if axis_formatting:
-                    if xaxis:
-                        for item in r.get_xticklabels():
-                            item.set_fontsize(self.settings.F_size*0.65)
-                    else:
-                        r.xaxis.set_ticklabels([])
-                        r.tick_params(axis = 'x', length = 8)
-
-                    if yaxis:
-                        for item in r.get_yticklabels():
-                            item.set_fontsize(self.settings.F_size*0.65)
-                    else:
-                        r.yaxis.set_ticklabels([])
-                        r.tick_params(axis = 'y', length = 8)
-
-        i = 0
+        kwargs = {
+            'source':source, 
+            'conditions':conditions, 
+            'colours':colours, 
+            'linestyles':linestyles, 
+            'y_axis_range':y_axis_range, 
+            'axis_formatting':axis_formatting
+        }
         if x > 1: ####grid or col layout
-            for row in axes:
+            for i, row in enumerate(axes):
                 if y > 1: #####grid layout
-                    j = 0
-                    for electrode in electrodes[i]:
-                        r = row[j]
-                        _plot_EEG(electrode, r, xaxis = (i == x - 1), yaxis = (j == 0))
-                        j += 1
+                    for j, electrode in enumerate(electrodes[i]):
+                        self.plot_electrode(ax = row[j], electrode = electrode, xaxis = (i == x - 1), yaxis = (j == 0), **kwargs)
                 else: #####col layout
-                    _plot_EEG(electrodes[i], row, xaxis = (i == x - 1))                
-                i+=1
+                    self.plot_electrode(ax = row, electrode = electrodes[i], xaxis = (i == x - 1), **kwargs)
         elif y > 1: ####row layout
-            for electrode in electrodes:
-                _plot_EEG(electrode, axes[i], yaxis = (i == 0))
-                i+=1
+            for i, electrode in enumerate(electrodes):
+                self.plot_electrode(ax = axes[i], electrode = electrode, yaxis = (i == 0), **kwargs)
         else: ####single plot
-            _plot_EEG(electrodes, axes)
+            self.plot_electrode(ax = axes, electrode = electrodes, **kwargs)
 
         fig.set_tight_layout(True)
 
         path = os.path.join("Plots", "%sppts" % self.N, "EEG")
-        if not os.path.exists(path):
-            os.makedirs(path)
+        self._save_fig(fig, path, fig_title)
 
-        def _print_log():
-            f = open(os.path.join(path, fig_title + '.txt'), 'w')
+        with open(os.path.join(path, fig_title + '.txt'), 'w') as f:
             f.write('Log file for the plot: ' + fig_title)
             f.write('\n')
             for i in range(len(conditions)):
                 f.write('\n' + "Condition: %s\t\t--->\tColour: %s\tLinestyle: '%s'" % (conditions[i],colours[i],linestyles[i]))
             f.write('\n \n')
             f.write(str(electrodes))
-            f.close()
 
-        _print_log()
         if see_log:
-            f = open(os.path.join(path, fig_title + '.txt'), 'r')
-            for line in f.read().splitlines():
-                print(line)
-            f.close()
+            with open(os.path.join(path, fig_title + '.txt'), 'r') as f:
+                for line in f.read().splitlines():
+                    print(line)
 
+        fig.patch.set_facecolor('white')
+        print('\nPlotted successfully! Navigate to %s to find %s\n' % (path, fig_title))
+    
+    def _save_fig(self, fig, path, fig_title):
+        if not os.path.exists(path):
+            os.makedirs(path)
+            
         if isinstance(fig_title, str):
             if not fig_title.endswith(".pdf"):
                 fig_title += '.pdf'
+        else:
+            raise TypeError("The provided filename is of type: %s. Please provide a string for the filename." % (type(filename)))
 
         fig.savefig(os.path.join(path, fig_title),format='pdf',dpi=1200)
-        fig.patch.set_facecolor('white')
-        print('\nPlotted successfully! Navigate to %s to find %s\n' % (path, fig_title))
+    
+    def plot_electrode(self, source, conditions, electrode, colours, linestyles, y_axis_range = None, ax = None, axis_formatting = True, xaxis=True, yaxis=True):
+        """
+        Plot ERP waveforms for any number of conditions (optimal viewing at 1-4 conditions) with any colours, linestyles for a single electrode. This is intended for use in a custom plotting layout. If you wish to plot a single electrode, use plot_EEG instead.
+
+        Required arguments:
+        source (pandas df) -- this is a source for the data, this can be any dataframe with conditions as the index, electrodes as columns and a 't' column. It will likely be a self.grands['NAME'] OR self.ppt(PPTID)
+        conditions (str or list) -- this can be a single string or a list of strings. Ex: 'Condition1' OR ['Condition1','Condition2']
+
+        Optional arguments:
+        electrodes (str or list of str or list of list of str) -- a string specifying a layout found in self.settings.electrode_layouts OR a 1 or 2 dimensional list of electrodes ex: 'midlines' OR ['Fz','FCz'], [['Fz'],['FCz']], [['Fz','FCz'],['Cz','CPz']] default: 'midlines'
+        colours (None or list of str) -- a list of colours as strings (ex: ['black','red']). The number of colours should match the number of provided conditions or left as None for default colours = ['black', 'red', 'blue', 'purple', ... all others default to black]
+        linestyles (None or list) -- a list of linestyles as strings (allowed = ':' for dotted, '-' for solid, '-.' for dash and dot, '--' for dashed) or left as None for default linestyles = all solid
+        y_axis_range (None or list of int) -- the range of the y axis as [lower, upper] or if left as None, the range is left as default. default: None
+
+        Optional arguments you shouldn't need to change:
+        axis_formatting (bool) -- if True, apply custom axis formatting. Debugging use only. default: True
+        """
+        if colours == None:
+            colours = self.settings.default_colours
+        
+        if linestyles == None:
+            linestyles = self.settings.default_linestyles
+        
+        while len(colours) < len(conditions):
+            colours.append('black')
+            
+        while len(linestyles) < len(conditions):
+            linestyles.append('-')
+        
+        if isinstance(conditions, str):
+            conditions = [conditions]
+        elif isinstance(conditions,list):
+            if any(not isinstance(condition,str) for condition in conditions):
+                raise TypeError("One of the provided conditions is not a string.")
+        else:
+            raise TypeError("Provided conditions is of invalid type: %s. Provide a string or a list of strings" % (type(conditions)))
+        
+        if any(condition not in source.index for condition in conditions):
+            raise ValueError("One of the provided conditions is not in the provided source.")
+
+        if ax == None:
+            fig, ax = plt.subplots(1)
+        else:
+            if isinstance(ax, mpl.axes.Axes):
+                fig = ax.get_figure()
+            else:
+                raise TypeError('Provided ax must be a valid matplotlib axes object.')
+
+        if electrode == None:
+            ax.axis('off')
+        else:
+            for cond, col, linestyle in zip(conditions, colours, linestyles):
+                if(linestyle == '--'):                        
+                    ax.plot(self.settings.t, source.loc[cond][electrode], color=col, linestyle=linestyle, dashes = (1,2))
+                else:
+                    ax.plot(self.settings.t, source.loc[cond][electrode], color=col, linestyle=linestyle)
+                    
+            while isinstance(electrode,list):
+                electrode = electrode[0]
+            ax.text(0.025,0.9,electrode,transform=ax.transAxes,fontsize=self.settings.F_size, fontweight=self.settings.F_weight)
+            
+            if isinstance(y_axis_range,list):
+                ax.set_ylim(y_axis_range)
+                
+            ax.spines['bottom'].set_position('zero')
+            ax.spines['top'].set_color('none')
+            ax.spines['right'].set_color('none')
+                
+            if axis_formatting:
+                if xaxis:
+                    for item in ax.get_xticklabels():
+                        item.set_fontsize(self.settings.F_size*0.65)
+                else:
+                    ax.xaxis.set_ticklabels([])
+                    ax.tick_params(axis = 'x', length = 8)
+
+                if yaxis:
+                    for item in ax.get_yticklabels():
+                        item.set_fontsize(self.settings.F_size*0.65)
+                else:
+                    ax.yaxis.set_ticklabels([])
+                    ax.tick_params(axis = 'y', length = 8)
+        
+        return fig, ax
 
     def dimensions(self, _input):
         """
@@ -764,45 +808,55 @@ class Project:
             x,y = 1,1
         return x,y
     
-    def plot_legend(self, y_axis_range, filename, axis_formatting = True):
+    def plot_legend(self, y_axis_range, ax = None, axis_formatting = True, fontsize = None):
         """
         Create a legend in the Plots folder with specified y_axis_range
 
         Required arguments:
-        y_axis_range (list of int) -- a list specified as [lower, upper]
-        filename (str) -- the filename of the legend
+        y_axis_range (list of int or float) -- a list specified as [lower, upper]
+
+        Optional arguments:
+        ax (matplotlib.axes.Axes)
+        fontsize (int)
 
         Optional arguments you should not need to change:
         axis_formatting (bool) -- if True, apply custom axis formatting. Debugging use only. default: True
         """
-        if isinstance(y_axis_range, list):
-            if len(y_axis_range) == 2:
-                ymin, ymax = y_axis_range[0],y_axis_range[1]
-                if ymin < ymax:
-                    fig = plt.figure(figsize=(13,7))
-                    ax = fig.add_subplot(111, xlabel='Time (ms)', ylabel='Voltage (uV)')
-                    ax.plot(self.settings.t,[0]*len(self.settings.t),linewidth=0)
-                    ax.set_ylim(y_axis_range)
-                    if axis_formatting:
-                        ax.spines['bottom'].set_position('zero')
-                        ax.spines['top'].set_color('none')
-                        ax.spines['right'].set_color('none')
-                        for item in ([ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
-                            item.set_fontsize(30)
-                    if isinstance(filename, str):
-                        if not filename.endswith(".pdf"):
-                            filename += '.pdf'
-                    else:
-                        raise TypeError("The provided filename is of type: %s. Please provide a string for the filename." % (type(filename)))
-                    fig.savefig(os.path.join('Plots', filename),format='pdf',dpi=1200)
-                else:
-                    raise ValueError("Ensure range is provided in form [min, max]")
-            else:
-                raise ValueError("Ensure the range provided only contains two values")
+        if fontsize is None:
+            fontsize = self.settings.F_size
+
+        if ax is None:
+            fig, ax = plt.subplots(1, figsize=(13,7))
+        elif isinstance(ax, mpl.axes.Axes):
+            fig = ax.get_figure()
         else:
+            raise TypeError('Provided ax must be a valid matplotlib axes object.')
+
+
+        if not isinstance(y_axis_range, list):
             raise TypeError("Ensure the provided range is a list in the form [min, max]")
 
-    
+        if len(y_axis_range) == 2:
+            ymin, ymax = y_axis_range[0],y_axis_range[1]
+        else:
+            raise ValueError("Ensure the range provided only contains two values")
+
+        if ymin >= ymax:
+            raise ValueError("Ensure range is provided in form [min, max]")
+
+        ax.set_xlabel('Time (ms)')
+        ax.set_ylabel('Voltage (uV)')
+        ax.plot(self.settings.t,[0]*len(self.settings.t),linewidth=0)
+        ax.set_ylim(y_axis_range)
+        if axis_formatting:
+            ax.spines['bottom'].set_position('zero')
+            ax.spines['top'].set_color('none')
+            ax.spines['right'].set_color('none')
+            for item in ([ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
+                item.set_fontsize(fontsize)
+
+        return ax
+
     @property
     def ppts(self):
         """
