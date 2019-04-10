@@ -855,7 +855,7 @@ class Project:
             for item in ([ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
                 item.set_fontsize(fontsize)
 
-        return ax
+        return ax, fig
 
     @property
     def ppts(self):
