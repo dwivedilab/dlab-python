@@ -233,7 +233,7 @@ class Project:
         else:
             print("Something doesn't look right - double check to make sure.\n")
         
-    def load_pickle(name):
+    def load_pickle(self,name):
         """
         If the Project has been generated and saved before, the pickle file can be loaded using this function returning a Project object. Loading from the pickle is faster than loading from the EMSE files each time.
 

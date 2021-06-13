@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import pyreadstat
 from savReaderWriter import * 
 
 def import_from_excel(filename, sheetname):
@@ -100,8 +101,7 @@ def export_to_spss(filename, df, reset_index = False, DataType = 0, measure = 's
         alignments.update({var:align})
 
     try:
-        with SavWriter(filename, varNames, varTypes, ioUtf8 = True, measureLevels = measureLevels) as writer:
-            writer.writerows(df)
+        pyreadstat.write_sav(df,filename,variable_measure=measureLevels)
     except:
         raise ValueError("ERROR: Something went wrong. Check if the file is open.")
     else:
