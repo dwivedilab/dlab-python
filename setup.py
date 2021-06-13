@@ -14,7 +14,8 @@ setup(
         'savReaderWriter',
         'matplotlib',
         'numpy',
-        'xlrd'
+        'xlrd',
+        'pyreadstat'
     ],
     include_package_data=True,
     zip_safe=False
